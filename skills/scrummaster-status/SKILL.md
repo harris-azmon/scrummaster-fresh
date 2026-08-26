@@ -52,4 +52,6 @@ Present the summary in a clear, readable format, including:
 -   **Next Action Needed:** the next pending task.
 -   **Blockers:** any items explicitly marked as blockers in the plan.
 -   **Phases (total), Tasks (total), Progress:** presented as `tasks_completed/tasks_total (percentage%)`.
+-   **Build time:** median, min, max of `ready_entered_at → review_entered_at` across completed stories (computed from `metadata.json`).
+-   **Acceptance time:** median, min, max of `review_entered_at → done_at` across completed stories (computed from `metadata.json`).
 -   **Ticket Drift (optional):** any mismatches between plan `[x]` and Fossil ticket status, if the cross-check was run.

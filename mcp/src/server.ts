@@ -188,6 +188,48 @@ server.tool(
 	},
 );
 
+// Check whether each ACID in the provided list has accepted status.
+server.tool(
+	"acid_check_dependencies",
+	{
+		acids: z.array(z.string()).describe("List of ACIDs to check acceptance for"),
+	},
+	async ({ acids }) => {
+		try {
+			const rows = await queryTickets(cwd);
+			const acidStatusMap = new Map<string, string>();
+			for (const row of rows) {
+				if (row.acid) {
+					acidStatusMap.set(row.acid, row.acai_status ?? row.status ?? "open");
+				}
+			}
+			const accepted: string[] = [];
+			const notAccepted: string[] = [];
+			for (const acid of acids) {
+				const status = acidStatusMap.get(acid) ?? "not-found";
+				if (status === "accepted") {
+					accepted.push(acid);
+				} else {
+					notAccepted.push(acid);
+				}
+			}
+			return {
+				content: [
+					{
+						type: "text",
+						text: JSON.stringify({ accepted, notAccepted }, null, 2),
+					},
+				],
+			};
+		} catch (error: any) {
+			return {
+				content: [{ type: "text", text: `Error: ${error.message}` }],
+				isError: true,
+			};
+		}
+	},
+);
+
 // Raw ACID text from a spec path, for convenience/verification.
 server.tool(
 	"acid_parse_spec_text",

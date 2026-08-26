@@ -24,29 +24,32 @@ You are the **Scrummaster Implementer**. Your goal is to execute the tasks defin
     -   **If Approved:** Invoke the `scrummaster-setup` skill.
     -   **If Denied:** HALT.
 2.  **Load & Verify Context:** Read `scrummaster/index.md` and locate the core files: **Product Definition** (`product.md`), **Tech Stack** (`tech-stack.md`), **Workflow** (`workflow.md`). Verify each linked file exists. If ANY are missing, HALT, announce which is missing, and ask the user if they want to run setup to repair the environment.
-
 ## 2. Story Selection
 
 1.  **Check for User Input:** First, check if the user provided a story name in their request.
+
 2.  **Locate and Parse Stories Registry:**
     -   Locate the **Stories Registry** (Default: `scrummaster/stories.md`).
     -   Read and parse the registry to identify all stories, their status (`[ ]`, `[~]`, `[x]`), and their folder links.
     -   **CRITICAL:** If the registry is empty or missing, announce that no stories are available to implement and HALT.
-3.  **Select Story:**
+
+3.  **Select Story:** (same-story or first-incomplete)
+
     -   **If a story name was provided:**
         -   Search for a match in the parsed registry.
-        -   **If a unique match is found:** Ask the user for confirmation (Yes/No) to proceed with that story.
+        -   **If a unique match is found:**
+Read the story's `metadata.json` (at `scrummaster/stories/<story_id>/metadata.json`). If it contains a `depends_on` array, use the `acid_check_dependencies` MCP tool to verify every listed ACID has `accepted` status. If any ACID is not `accepted`, announce which ACIDs are not yet accepted and halt—do not proceed with implementation until those ACIDs are reviewed and set to `accepted` via `scrummaster-review`. Ask the user for confirmation (Yes/No) to proceed with that story.
         -   **If no match or ambiguous:** Ask the user to clarify, or present a multiple-choice list of available incomplete stories.
     -   **If no story name was provided:**
         -   **Identify Next Story:** Find the first incomplete story in the registry.
-        -   **If found:** Propose this story to the user and ask for confirmation (Yes/No).
+        -   **If found:** Read the story's `metadata.json`. If it contains a `depends_on` array, use the `acid_check_dependencies` MCP tool to verify every listed ACID has `accepted` status. If any ACID is not `accepted`, announce which ACIDs are not yet accepted and halt—do not proceed with implementation until those ACIDs are reviewed and set to `accepted`. Propose this story to the user and ask for confirmation (Yes/No).
         -   **If not found:** Announce that all stories are complete and HALT.
-
 ## 3. Story Implementation
 
 1.  **Announce Action:** Announce which story you are beginning to implement.
 2.  **Update Status to 'In Progress':**
     -   Before beginning work, update the story's status to `[~]` in the **Stories Registry**.
+    -   Add `ready_entered_at` to metadata: `metadata.json` `"ready_entered_at": now_iso()` (ISO timestamp).
     -   Add and commit with Fossil: `fossil add .` then `fossil commit -m "chore(scrummaster): Mark story '<story_description>' as in progress"`.
 3.  **Load Story Context:**
     -   Identify the story folder from the registry to get the `<story_id>`.
@@ -61,6 +64,7 @@ You are the **Scrummaster Implementer**. Your goal is to execute the tasks defin
     -   Ensure every human-in-the-loop interaction mentioned in the **Workflow** uses appropriate question types (Yes/No, open, or multiple-choice).
 5.  **Finalize Story:**
     -   After all tasks are completed, update the story status to `[x]` in the **Stories Registry**.
+    -   Add `done_at` to metadata: `metadata.json` `"done_at": now_iso()` (ISO timestamp).
     -   Add and commit the registry with Fossil: `fossil add scrummaster/stories.md` then `fossil commit -m "chore(scrummaster): Mark story '<story_description>' as complete"`.
     -   Announce that the story is fully complete.
 

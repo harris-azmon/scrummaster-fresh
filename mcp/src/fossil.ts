@@ -276,3 +276,29 @@ export async function pushSpecAcids(
 export async function readTextFile(filePath: string): Promise<string> {
 	return readFile(filePath, "utf8");
 }
+
+// Check whether each ACID in the provided list has accepted status.
+export async function checkDependencies(
+	cwd: string,
+	acids: string[],
+	runner: Runner = defaultRunner,
+): Promise<{ accepted: string[]; notAccepted: string[] }> {
+	const rows = await queryTickets(cwd);
+	const acidStatusMap = new Map<string, string>();
+	for (const row of rows) {
+		if (row.acid) {
+			acidStatusMap.set(row.acid, row.acai_status ?? row.status ?? "open");
+		}
+	}
+	const accepted: string[] = [];
+	const notAccepted: string[] = [];
+	for (const acid of acids) {
+		const status = acidStatusMap.get(acid) ?? "not-found";
+		if (status === "accepted") {
+			accepted.push(acid);
+		} else {
+			notAccepted.push(acid);
+		}
+	}
+	return { accepted, notAccepted };
+}

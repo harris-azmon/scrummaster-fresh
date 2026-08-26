@@ -108,11 +108,12 @@ Format your output strictly as follows:
 1.  **Update Ticket Status:** After the review (or after applying fixes), use the `acid_set_status` MCP tool to record the acceptance status of each ACID (e.g., `accepted` for criteria that pass, `rejected`/`incomplete` for those that fail), with a comment summarizing the review outcome. This is the audit layer; it does not change the plan `[x]` source of truth.
 2.  **Check for Changes:** Run `fossil changes --differ`.
 3.  **Condition for Action:**
-    -   If NO changes, skip the commit.
-    -   If changes: confirm with the user (Yes/No). If yes:
-        -   If reviewing a story, append a `## Phase: Review Fixes` with `- [~] Task: Apply review suggestions` to the story's `plan.md`, then commit code with `fossil add .` and `fossil commit -m "fix(scrummaster): Apply review suggestions for story '<story_name>'"`. Mark the plan task `[x]` after.
-
-### 3.3 Story Cleanup
+     -   If NO changes, skip the commit.
+     -   If changes: confirm with the user (Yes/No). If yes:
+         -   If reviewing a story, append a `## Phase: Review Fixes` with `- [~] Task: Apply review suggestions` to the story's `plan.md`, then commit code with `fossil add .` and `fossil commit -m "fix(scrummaster): Apply review suggestions for story '<story_name>'"`. Mark the plan task `[x]` after.
++   **Record review timestamps:** If `metadata.json` does not already have a `review_entered_at` field, set it now: `metadata.json` `"review_entered_at": now_iso()`. If `done_at` is not yet set, also set it: `metadata.json` `"done_at": now_iso()`.
++
+ ### 3.3 Story Cleanup
 
 1.  **Context Check:** If not reviewing a specific story, SKIP this section.
 2.  **Ask for User Choice:** Ask a **multiple-choice question**: **Archive** (move to `scrummaster/archive/`), **Delete** (permanent), or **Skip**.
