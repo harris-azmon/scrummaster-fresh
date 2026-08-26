@@ -1,0 +1,8 @@
+{
+ "story_id": "scrum_20260827",
+ "type": "feature",
+ "status": "new",
+ "created_at": "2026-08-27T00:00:00Z",
+ "updated_at": "2026-08-27T00:00:00Z",
+ "description": "Initialize Scrummaster setup for fresh project - new git repo with core product guidelines, tech stack, workflow, and first story artifact."
+}
