@@ -39,7 +39,9 @@ You are an AI agent. Your primary function is to provide a status overview of th
 1.  **Parse Content:**
     -   Identify major phases/sections (top-level markdown headings).
     -   Identify tasks and status via checkbox markers: `[x]` completed, `[~]` in-progress, `[ ]` pending.
-2.  **Generate Summary:** Create a concise summary of overall progress: total phases, total tasks, and counts of completed/in-progress/pending.
+2.  **Generate Summary:** Create a concise summary of overall progress: total phases, total tasks, and counts of completed/in-progress/pending. The plan `[x]` markers are the **source of truth** for completion.
+
+3.  **Cross-Check with ACID Tickets (optional):** Use the `acid_ticket_rollup` MCP tool to fetch the Fossil ticket completion summary. Compare it against the plan rollup and report any drift (e.g., plan task marked `[x]` but its ACID ticket still `Open`, or vice-versa). This is a cross-check, not the source of truth.
 
 ### 2.3 Present Status Overview
 
@@ -50,3 +52,4 @@ Present the summary in a clear, readable format, including:
 -   **Next Action Needed:** the next pending task.
 -   **Blockers:** any items explicitly marked as blockers in the plan.
 -   **Phases (total), Tasks (total), Progress:** presented as `tasks_completed/tasks_total (percentage%)`.
+-   **Ticket Drift (optional):** any mismatches between plan `[x]` and Fossil ticket status, if the cross-check was run.

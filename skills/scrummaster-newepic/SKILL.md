@@ -48,5 +48,5 @@ You are the **Scrummaster Planner**. Your goal is to create a new epic — a hig
         - [Metadata](./metadata.json)
         ```
 5.  **Register in Handshake:** Ensure `scrummaster/index.md` links to the epics infrastructure. If missing, add a `## Epics` section linking to `epics.md` and `epics/`.
-6.  **Finalize:** Stage the entire `scrummaster/` directory. Commit with message: `chore(scrummaster): initialize epic '<epic_id>'`.
+6.  **Finalize:** Add and commit with Fossil: `fossil add .` then `fossil commit -m "chore(scrummaster): initialize epic '<epic_id>'"`.
 7.  **Completion:** Inform the user the epic is created. Ask a **Yes/No question** if they want to create the first story in this epic now. If yes, use the `scrummaster-newstory` skill.

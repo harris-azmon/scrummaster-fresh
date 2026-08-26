@@ -49,12 +49,17 @@ Read the returned JSON object from `stdout`. **Do NOT mention the script name or
 ## 2. Interactive Scaffolding & Context Gathering
 
 1.  **Detect Project Maturity:** Classify as **Brownfield** (existing) or **Greenfield** (new):
-    -   **Brownfield Indicators:** dependency manifests (`package.json`, `go.mod`, `requirements.txt`, etc.); source code directories (`src/`, `app/`, `lib/`); git hygiene (if `.git` exists, run `git status --porcelain`; ignore `scrummaster/`; if other uncommitted changes exist, notify the user and classify as Brownfield).
-    -   **Greenfield Condition:** None of the above, ignoring `scrummaster/`, a clean `.git`, and a `README.md`.
+    -   **Fossil Check:** Run `fossil info`. If it prints a `checkout:` line, you are inside an open Fossil checkout. Otherwise, this is not yet a Fossil checkout.
+    -   **Brownfield Indicators:** dependency manifests (`package.json`, `go.mod`, `requirements.txt`, etc.); source code directories (`src/`, `app/`, `lib/`); an existing Fossil checkout (`fossil info` returns a `checkout:` line). If there is no open checkout, classify as needing initialization.
+    -   **Greenfield Condition:** None of the above, ignoring `scrummaster/`, and a `README.md`.
 
 2.  **Execute Maturity Workflow:**
-    -   **If Brownfield:** Ask permission for a read-only scan, then analyze the project minimizing token usage (`git ls-files`, respect `.gitignore`, ignore heavy dirs, read files >1MB partially).
-    -   **If Greenfield:** `git init` if no `.git`; ask *"What do you want to build?"* and hold the answer as the **Initial Concept**.
+    -   **If Brownfield / existing checkout:** Ask permission for a read-only scan, then analyze the project minimizing token usage (`fossil ls`, respect ignore patterns, ignore heavy dirs, read files >1MB partially).
+    -   **If Greenfield / no checkout:** Initialize Fossil:
+        1.  Run `fossil init <project>.fossil` in the current directory (using the project name as the repository filename).
+        2.  Run `fossil open <project>.fossil` to open the checkout.
+        3.  **Apply the ticket schema** (see Section 2.6) so the ACID ticket table is ready.
+        4.  Ask *"What do you want to build?"* and hold the answer as the **Initial Concept**.
 
 3.  **RESUME CHECK (Fast-Forward):** If partial artifacts exist, announce the next step using human-readable names and ask a Yes/No question to proceed; jump to that step on approval. If none exist, proceed sequentially from Product Definition.
 
@@ -97,6 +102,14 @@ Select and copy style guides from `assets/code_styleguides/` to `scrummaster/cod
 3.  **Explain:** Explain that `workflow.md` defines the "rules of the game" — every task follows TDD and high-quality standards.
 4.  **Write Action:** Copy `assets/workflow.md` to `scrummaster/workflow.md` and apply choices if customized.
 
+### 2.6 Fossil Ticket Schema (ACID tracking)
+
+Scrummaster tracks one ACID per Fossil ticket in the repository's own `ticket` table. Apply the schema once, right after the checkout is open:
+
+1.  **Apply Schema:** Run `fossil sql < assets/ticket_schema.sql` (relative to this skill's base directory). This adds the columns `epic_id`, `story_id`, `acid`, `component`, `deprecated`, `acai_status`, `acai_comment`, `last_seen_commit` plus supporting indexes.
+2.  **Verify:** Run `fossil sql "SELECT name FROM pragma_table_info('ticket');"` and confirm `acid` is present.
+3.  **Explain:** Explain that one Fossil ticket per ACID is the project's traceability layer — `scrummaster-review` uses it to cross-check acceptance criteria, while `plan.md`'s `[x]` markers remain the source of truth for completion.
+
 ## 3. The Handshake (Index Generation)
 
 Create `scrummaster/index.md`. This is the **Single Source of Truth** for all tools.
@@ -122,10 +135,15 @@ Create `scrummaster/index.md`. This is the **Single Source of Truth** for all to
 
 -   [Stories Registry](./stories.md)
 -   [Stories Directory](./stories/)
+
+## Epics
+
+-   [Epics Registry](./epics.md)
+-   [Epics Directory](./epics/)
 ```
 
 3.  **Integrity Check:** Verify the existence of all linked files on disk.
-4.  **Commit Stage:** Stage the entire `scrummaster/` directory. Commit with message: `scrummaster(setup): Initialize project context and standards`.
+4.  **Commit Stage:** Add all files and commit with Fossil: `fossil add .` then `fossil commit -m "scrummaster(setup): Initialize project context and standards"`.
 
 ## 4. Completion
 

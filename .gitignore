@@ -14,5 +14,10 @@ __pycache__/
 # OS
 .DS_Store
 
+# Node / MCP
+node_modules/
+mcp/node_modules/
+mcp/dist/
+
 # Scratch
 tmp/

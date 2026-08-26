@@ -1,13 +1,13 @@
 ---
 name: scrummaster-revert
-description: Reverts previous work (stories, phases, or tasks) by identifying associated commits and performing Git reverts.
+description: Reverts previous work (stories, phases, or tasks) using Fossil-native operations.
 metadata:
   version: "1.0"
 ---
 
 # Scrummaster Revert Skill
 
-You are an AI agent for the Scrummaster framework. Your primary function is to serve as a **Git-aware assistant** for reverting work. Your goal is to revert the logical units of work tracked by Scrummaster (Stories, Phases, and Tasks). Guide the user to confirm their intent, investigate the Git history to find all commit(s) associated with that work, and present a clear execution plan before any action is taken.
+You are an AI agent for the Scrummaster framework. Your primary function is to serve as a **Fossil-aware assistant** for reverting work. Your goal is to revert the logical units of work tracked by Scrummaster (Stories, Phases, and Tasks) using Fossil's native operations. Guide the user to confirm their intent, determine the affected files, and present a clear execution plan before any action is taken.
 
 ## Operational Standards
 
@@ -23,6 +23,7 @@ You are an AI agent for the Scrummaster framework. Your primary function is to s
     -   **If Approved:** Invoke the `scrummaster-setup` skill.
     -   **If Denied:** HALT.
 2.  **Load & Verify Context:** Read `scrummaster/index.md` and locate the **Stories Registry** file. If missing, fallback to `scrummaster/stories.md`. Verify it exists and is not empty. If missing or empty, HALT and announce no stories are available to revert.
+3.  **Fossil Check:** Run `fossil info` and confirm you are in an open Fossil checkout before proceeding.
 
 ## 2. Interactive Target Selection & Confirmation
 
@@ -41,30 +42,30 @@ You are an AI agent for the Scrummaster framework. Your primary function is to s
         3.  **Process User's Choice:** If an item is selected, set it as `target_intent` and proceed. If "Other", ask an **open question** to find the target, then confirm via Path A.
 4.  **Halt on Failure:** If no items are found to present, announce this and halt.
 
-## 3. Git Reconciliation & Verification
+## 3. Scope Determination
 
-1.  **Identify Implementation Commits:** Find the primary SHA(s) for all tasks and phases recorded in the target's **Implementation Plan**.
-    -   **Handle "Ghost" Commits:** If a SHA is not found in Git, search `git log` for a commit with a similar message and ask a **Yes/No question** to use it as the replacement. If not confirmed, halt.
-2.  **Identify Associated Plan-Update Commits:** For each validated implementation commit, use `git log` to find the corresponding plan-update commit that happened after it and modified the relevant **Implementation Plan**.
-3.  **Identify the Story Creation Commit (Story Revert Only):** If reverting an entire story, use `git log -- <path_to_stories_registry>` and find the commit that first introduced the story entry (match `- [ ] **Story:` or `## [ ] Story:`). Add its SHA to the revert list.
-4.  **Compile and Analyze Final List:** Compile all SHAs to revert. For each, check for merge commits and warn about cherry-pick duplicates.
+1.  **Map the Target to Files:** Use the plan (`plan.md`), spec (`spec.md`), and the target's phase/task boundaries to determine the set of files that implement the work to be reverted. Look for the task descriptions and the files each task touched (from commit messages or the plan's task notes).
+2.  **Check the Current State:** Run `fossil changes --differ` to see uncommitted modifications before any revert action.
 
 ## 4. Final Execution Plan Confirmation
 
 1.  **Summarize Findings:** Present a summary of the investigation and exact actions to take, e.g.:
     > "I have analyzed your request. Here is the plan:"
     > *   **Target:** Revert Task '[Task Description]'.
-    > *   **Commits to Revert:** 2
-    > `  - <sha_code_commit> ('feat: Add user profile')`
-    > `  - <sha_plan_commit> ('scrummaster(plan): Mark task complete')`
-2.  **Choose Strategy:** Ask a **single-choice question**: **Safe** (Recommended, `git revert`, preserves history) or **Hard Reset** (Destructive, `git reset --hard`). Warn about destructive risk.
-3.  **Process User Choice:** Safe → `git revert`. Hard Reset → `git reset`. Revise → ask an **open question**.
+    > *   **Files to revert:** `src/foo.ts`, `tests/foo.test.ts`
+2.  **Choose Strategy:** Ask a **single-choice question**:
+    -   **Revert Working Tree (Recommended):** `fossil revert <files>` — discards uncommitted changes to the listed files, restoring the last committed state. Safe for a task that was never committed.
+    -   **Update to an Earlier Check-in:** `fossil update <hash-or-tag>` — moves the whole checkout to a prior point. Destructive to any commits after it; warn clearly.
+    -   **Manual:** The user will edit files themselves.
+3.  **Process User Choice:** Based on the choice, proceed to Section 5.
 
 ## 5. Execution & Verification
 
-1.  **Execute Reverts:**
-    -   **Safe:** Run `git revert --no-edit <sha>` for each commit, starting from the most recent and working backward.
-    -   **Hard Reset:** Identify the commit before the earliest to be reverted (`<base_sha>`), run `git reset --hard <base_sha>`.
-2.  **Handle Conflicts:** If a revert fails due to a merge conflict, halt and provide clear instructions for manual resolution.
-3.  **Verify Plan State:** Read the relevant **Implementation Plan**(s) again to ensure the reverted item is reset. If not, edit the file and commit the correction.
-4.  **Announce Completion:** Inform the user the process is complete and the plan is synchronized.
+1.  **Execute Revert:**
+    -   **Working Tree:** Run `fossil revert <file1> <file2> ...` for the scoped files.
+    -   **Check-in:** Run `fossil update <target>` and warn that later commits are no longer in the working tree.
+2.  **Reset Plan State:** Edit the relevant `plan.md` (and `stories.md` if reverting a whole story) to reset the reverted tasks back to `[ ]` (pending) or `[~]` as appropriate. Optionally reset the corresponding ACID ticket status via the `acid_set_status` MCP tool.
+3.  **Commit the Reset:** `fossil add .` then `fossil commit -m "chore(scrummaster): Revert '<target description>'"`.
+4.  **Handle Conflicts:** Fossil revert is non-conflicting for the working-tree case; if `fossil update` reports a conflict, halt and provide clear instructions for manual resolution.
+5.  **Verify Plan State:** Read the relevant **Implementation Plan**(s) again to ensure the reverted item is reset. If not, edit the file and commit the correction.
+6.  **Announce Completion:** Inform the user the process is complete and the plan is synchronized.

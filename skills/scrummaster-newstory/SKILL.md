@@ -32,6 +32,7 @@ You are the **Scrummaster Planner**. Your goal is to guide the user through defi
 1.  **Load Project Context:** Read the core project documents linked in `scrummaster/index.md`.
 2.  **Acquire Story Description:** If not provided in the request, ask an **open question** for a brief description (feature, bug fix, chore, MVP, etc.).
 3.  **Infer & Confirm Type:** Analyze the description to determine the story type (MVP, Feature, Bug, Chore, Refactor). Ask a **Yes/No question** for confirmation.
+4.  **Select Epic:** A story belongs to an epic. Read `scrummaster/epics.md` and ask the user which epic this story belongs to, or offer to create a new epic via `scrummaster-newepic` if none fits. Record the `epic_id`.
 
 ### 2.2 Interactive Specification Generation (`spec.md`)
 
@@ -43,6 +44,9 @@ You are the **Scrummaster Planner**. Your goal is to guide the user through defi
     -   **Bug/Chore/etc.:** 2-3 questions on reproduction steps or specific scope.
     -   **Loop Control (CRITICAL):** At the end, ALWAYS ask *"Is this sufficient information to draft the spec, or would you like me to ask more questions?"* Repeat until the user confirms.
 4.  **Draft `spec.md`:** Include sections like Overview, Functional Requirements, Non-Functional Requirements, Acceptance Criteria, and Out of Scope.
+    -   **Assign ACIDs (CRITICAL):** Every acceptance criterion MUST be assigned a stable ACID (Acceptance Criteria ID) using the format `story_id.COMPONENT.n`, where `story_id` is the story's short name (underscores allowed), `COMPONENT` is an uppercase component name, and `n` is a 1-based number (e.g., `login-flow.AUTH.1`). Write each ACID as a bullet in the form:
+        -   `` - `login-flow.AUTH.1` — a user can log in ``
+    -   Optional trailing `[deprecated]` or `[deprecated: <reason>]` marks an ACID deprecated.
 5.  **User Confirmation:** Present the draft. Ask a **single-choice question**: **Approve** or **Revise**. Revise until confirmed.
 
 ### 2.3 Interactive Plan Generation (`plan.md`)
@@ -65,15 +69,16 @@ You are the **Scrummaster Planner**. Your goal is to guide the user through defi
 1.  **Strategic Action:** Explain that you are about to "commit the story to history" — creating a dedicated workspace, initializing its metadata, and updating the central registry so progress is trackable.
 2.  **Resolve Stories Path:** Use the links in `scrummaster/index.md`. Fallback: `scrummaster/stories/` for the directory and `scrummaster/stories.md` for the registry.
     -   **Collision Check:** List existing story directories. If a matching short name exists, halt and ask the user to provide a unique name or resume the existing story (single-choice).
-3.  **Generate Story ID & Directory:** Create a unique Story ID (e.g., `shortname_YYYYMMDD`). Create `scrummaster/stories/<story_id>/`.
+3.  **Generate Story ID & Directory:** Create a unique Story ID from the story short name using format `shortname_YYYYMMDD` (e.g., `login-flow_20260827`). Store it; it is the ACID prefix. Create `scrummaster/stories/<story_id>/`.
 4.  **Write Story Artifacts:**
     -   **Metadata:** Create `metadata.json` with story ID, type, status ("new"), and timestamps.
     -   **Documents:** Write the confirmed `spec.md` and `plan.md`.
     -   **Story Handshake:** Create `scrummaster/stories/<story_id>/index.md` linking to spec, plan, and metadata.
-5.  **Update Stories Registry:**
+5.  **Create ACID Tickets (Fossil):** Use the `acid_push` MCP tool to create one Fossil ticket per ACID from the spec. Provide `story_id`, the optional `epic_id` (from the selected epic), and the `requirements` map parsed from the spec's ACID bullets.
+6.  **Update Stories Registry:**
     -   Open `scrummaster/stories.md`. Append the new entry at the end. Create the file if this is the first story.
     -   Format: `markdown --- - [ ] **Story: <Story Description>** *Link: [<Relative path to the story's index.md>](<Relative path>)*`
     -   **CRITICAL:** The link MUST be a valid relative path from `stories.md` to the new story's `index.md`.
-6.  **Register Stories in Handshake:** Ensure `scrummaster/index.md` points to the stories infrastructure. If missing, add a `## Stories` section linking to `stories.md` and `stories/`.
-7.  **Finalize Changes:** Stage the entire `scrummaster/` directory. Commit with message: `chore(scrummaster): initialize story '<story_id>'`.
-8.  **Completion & Next Steps:** Inform the user the story is created and the registry updated. Ask a **Yes/No question** if they want to start implementation now. If yes, use the `scrummaster-implement` skill.
+7.  **Register Stories in Handshake:** Ensure `scrummaster/index.md` points to the stories infrastructure. If missing, add a `## Stories` section linking to `stories.md` and `stories/`.
+8.  **Finalize Changes:** Add and commit with Fossil: `fossil add .` then `fossil commit -m "chore(scrummaster): initialize story '<story_id>'"`.
+9.  **Completion & Next Steps:** Inform the user the story is created, ACID tickets created, and the registry updated. Ask a **Yes/No question** if they want to start implementation now. If yes, use the `scrummaster-implement` skill.

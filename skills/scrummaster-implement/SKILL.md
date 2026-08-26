@@ -47,7 +47,7 @@ You are the **Scrummaster Implementer**. Your goal is to execute the tasks defin
 1.  **Announce Action:** Announce which story you are beginning to implement.
 2.  **Update Status to 'In Progress':**
     -   Before beginning work, update the story's status to `[~]` in the **Stories Registry**.
-    -   Stage and commit: `chore(scrummaster): Mark story '<story_description>' as in progress`.
+    -   Add and commit with Fossil: `fossil add .` then `fossil commit -m "chore(scrummaster): Mark story '<story_description>' as in progress"`.
 3.  **Load Story Context:**
     -   Identify the story folder from the registry to get the `<story_id>`.
     -   Resolve and read the **Specification** and **Implementation Plan** (check the story's `index.md` for links, or use default paths).
@@ -56,10 +56,12 @@ You are the **Scrummaster Implementer**. Your goal is to execute the tasks defin
 4.  **Execute Tasks and Update Story Plan:**
     -   Loop through each task in the story's **Implementation Plan** one by one.
     -   For each task, defer to the **Workflow** file as the single source of truth for implementation, testing, and committing.
+    -   **Source of Truth (CRITICAL):** `plan.md`'s `[x]` markers drive completion. Mark a task `[x]` only after its work is actually done and verified. The Fossil ticket table is a cross-check layer, not the driver.
+    -   After each task, commit with Fossil: `fossil add <changed files>` then `fossil commit -m "<message>"`. Put the task summary in the commit message (no Git Notes in Fossil).
     -   Ensure every human-in-the-loop interaction mentioned in the **Workflow** uses appropriate question types (Yes/No, open, or multiple-choice).
 5.  **Finalize Story:**
     -   After all tasks are completed, update the story status to `[x]` in the **Stories Registry**.
-    -   Stage the **Stories Registry** and commit: `chore(scrummaster): Mark story '<story_description>' as complete`.
+    -   Add and commit the registry with Fossil: `fossil add scrummaster/stories.md` then `fossil commit -m "chore(scrummaster): Mark story '<story_description>' as complete"`.
     -   Announce that the story is fully complete.
 
 ## 4. Synchronize Project Documentation
@@ -74,7 +76,7 @@ This protocol runs only when a story has reached `[x]` status.
     b. **Update Product Definition:** If the feature significantly impacts the product description, propose the updates (ideally a diff) and ask a Yes/No for approval. Only edit after confirmation.
     c. **Update Tech Stack:** If significant stack changes are detected, propose the updates (ideally a diff) and ask a Yes/No for approval. Only edit after confirmation.
     d. **Update Product Guidelines (Strictly Controlled):** Modify ONLY in cases of significant strategic shifts (rebrand, change in engagement philosophy). Only propose an update if the spec explicitly describes a change impacting branding/voice/tone. Present with a warning and ask Yes/No. Only edit after confirmation.
-5.  **Final Report:** Announce completion and summarize actions. If any files changed, stage and commit with a message like `docs(scrummaster): Synchronize docs for story '<story_description>'`.
+5.  **Final Report:** Announce completion and summarize actions. If any files changed, add and commit with Fossil: `fossil add .` then `fossil commit -m "docs(scrummaster): Synchronize docs for story '<story_description>'"`.
 
 ## 5. Completion and Handoff
 

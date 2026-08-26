@@ -60,33 +60,29 @@ All tasks follow a strict lifecycle:
 
 8.  **Commit Code Changes:**
 
-    -   Stage all code changes related to the task.
+    -   Add all code changes related to the task (`fossil add <files>`).
     -   Propose a clear, concise commit message e.g, `feat(ui): Create basic
         HTML structure for calculator`.
-    -   Perform the commit.
+    -   Perform the commit: `fossil commit -m "<message>"`.
 
-9.  **Attach Task Summary with Git Notes:**
+9.  **Record Task Summary:**
 
-    -   **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed
-        commit* (`git log -1 --format="%H"`).
-    -   **Step 9.2: Draft Note Content:** Create a detailed summary for the
-        completed task. This should include the task name, a summary of changes,
+    -   Fossil has no Git Notes; put the task summary directly in the commit
+        message. The summary should include the task name, a summary of changes,
         a list of all created/modified files, and the core "why" for the change.
-    -   **Step 9.3: Attach Note:** Use the `git notes` command to attach the
-        summary to the commit. `bash # The note content from the previous step
-        is passed via the -m flag. git notes add -m "<note content>"
-        <commit_hash>`
 
-10. **Get and Record Task Commit SHA:**
+10. **Get and Record Task Commit Hash:**
 
-    -   **Step 10.1: Update Plan:** Read `plan.md`, find the line for the
+    -   **Step 10.1: Get Commit Hash:** Obtain the hash of the *just-completed
+        commit* (`fossil info` or `fossil timeline -n 1`).
+    -   **Step 10.2: Update Plan:** Read `plan.md`, find the line for the
         completed task, update its status from `[~]` to `[x]`, and append the
-        first 7 characters of the *just-completed commit's* commit hash.
-    -   **Step 10.2: Write Plan:** Write the updated content back to `plan.md`.
+        first 7 characters of the *just-completed commit's* hash.
+    -   **Step 10.3: Write Plan:** Write the updated content back to `plan.md`.
 
 11. **Commit Plan Update:**
 
-    -   **Action:** Stage the modified `plan.md` file.
+    -   **Action:** Add the modified `plan.md` file (`fossil add scrummaster/stories/<story_id>/plan.md`).
     -   **Action:** Commit this change with a descriptive message (e.g.,
         `scrummaster(plan): Mark task 'Create user model' as complete`).
 
@@ -106,9 +102,9 @@ When an implemented task or phase requires corrections, amendments, or additions
 3.  **Logical State Reversions (`scrummaster-revert`):** If a task implementation
     is fundamentally flawed or needs to be redone, instruct the agent to revert
     the changes (e.g., *"revert the last task"* or triggering the action
-    manually in compatible clients). This safely rolls back associated git
-    commits and resets the task state in `plan.md` back to pending `[ ]` to
-    allow a clean restart.
+    manually in compatible clients). This reverts the affected files with
+    Fossil (`fossil revert`) and resets the task state in `plan.md` back to
+    pending `[ ]` to allow a clean restart.
 
 ### Phase Completion Verification and Checkpointing Protocol
 
@@ -122,12 +118,12 @@ that also concludes a phase in `plan.md`.
 
     -   **Step 2.1: Determine Phase Scope:** To identify the files changed in
         this phase, you must first find the starting point. Read `plan.md` to
-        find the Git commit SHA of the *previous* phase's checkpoint. If no
+        find the commit hash of the *previous* phase's checkpoint. If no
         previous checkpoint exists, the scope is all changes since the first
         commit.
-    -   **Step 2.2: List Changed Files:** Execute `git diff --name-only
-        <previous_checkpoint_sha> HEAD` to get a precise list of all files
-        modified during this phase.
+    -   **Step 2.2: List Changed Files:** Execute `fossil changes --differ` (or
+        `fossil diff --name-only <previous_checkpoint_hash> current` for a range)
+        to get a precise list of all files modified during this phase.
     -   **Step 2.3: Verify and Create Tests:** For each file in the list:
         -   **CRITICAL:** First, check its extension. Exclude non-code files
             (e.g., `.json`, `.md`, `.yaml`).
@@ -190,31 +186,33 @@ that also concludes a phase in `plan.md`.
     -   Do NOT create a new empty commit for checkpointing.
     -   Identify the hash of the last functional commit made during this phase. This will be the target for the verification report.
 
-7.  **Attach Auditable Verification Report using Git Notes:**
+7.  **Record Auditable Verification Report:**
 
-    -   **Step 7.1: Draft Note Content:** Create a detailed verification report
+    -   **Step 7.1: Draft Report Content:** Create a detailed verification report
         including the automated test command, the manual verification steps, and
         the user's confirmation.
-    -   **Step 7.2: Attach Note:** Use the `git notes` command to attach the full report to the target commit identified in step 6.
+    -   **Step 7.2: Record:** Fossil has no Git Notes; append the verification
+        report to the phase's checkpoint entry in `plan.md`, or record it in the
+        commit message of the plan-update commit.
 
-8.  **Get and Record Phase Checkpoint SHA:**
+8.  **Get and Record Phase Checkpoint Hash:**
 
-    -   **Step 8.1: Get Commit Hash:** Obtain the hash of the *just-created
-        checkpoint commit* (`git log -1 --format="%H"`).
+    -   **Step 8.1: Get Commit Hash:** Obtain the hash of the latest functional
+        commit (`fossil info` or `fossil timeline -n 1`).
     -   **Step 8.2: Update Plan:** Read `plan.md`, find the heading for the
         completed phase, and append the first 7 characters of the commit hash in
-        the format `[checkpoint: <sha>]`.
+        the format `[checkpoint: <hash>]`.
     -   **Step 8.3: Write Plan:** Write the updated content back to `plan.md`.
 
 9.  **Commit Plan Update:**
 
-    -   **Action:** Stage the modified `plan.md` file.
+    -   **Action:** Add the modified `plan.md` file (`fossil add <path>`).
     -   **Action:** Commit this change with a descriptive message following the
         format `scrummaster(plan): Mark phase '<PHASE NAME>' as complete`.
 
 10. **Announce Completion:** Inform the user that the phase is complete and the
-    checkpoint has been created, with the detailed verification report attached
-    as a git note.
+    checkpoint has been created, with the detailed verification report recorded
+    in the plan or commit message.
 
 ### Quality Gates
 
@@ -357,10 +355,10 @@ Before requesting review:
 ### Examples
 
 ```bash
-git commit -m "feat(auth): Add remember me functionality"
-git commit -m "fix(posts): Correct excerpt generation for short posts"
-git commit -m "test(comments): Add tests for emoji reaction limits"
-git commit -m "style(mobile): Improve button touch targets"
+fossil commit -m "feat(auth): Add remember me functionality"
+fossil commit -m "fix(posts): Correct excerpt generation for short posts"
+fossil commit -m "test(comments): Add tests for emoji reaction limits"
+fossil commit -m "style(mobile): Improve button touch targets"
 ```
 
 ## Definition of Done
@@ -375,7 +373,7 @@ A task is complete when:
 6.  Works beautifully on mobile (if applicable)
 7.  Implementation notes added to `plan.md`
 8.  Changes committed with proper message
-9.  Git note with task summary attached to the commit
+9.  Task summary included in the commit message
 
 ## Emergency Procedures
 
