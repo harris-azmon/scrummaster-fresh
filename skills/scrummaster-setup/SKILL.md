@@ -135,4 +135,4 @@ Once the `scrummaster/` directory and index are created, announce that setup is 
 2.  **Proactive Suggestion:** Ask a Yes/No question if the user wants to define their next action now:
     -   **Greenfield:** start planning the initial product implementation (MVP) now.
     -   **Brownfield:** start defining the first actionable story now.
-3.  **Internal Handoff:** If the user agrees, use the `scrummaster-new-story` skill to begin planning.
+3.  **Internal Handoff:** If the user agrees, use the `scrummaster-newstory` skill to begin planning.

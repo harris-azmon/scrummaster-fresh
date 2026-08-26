@@ -17,7 +17,8 @@ Scrummaster is packaged as standard agent skills, modeled after the [conductor](
 | Command | Purpose | Artifacts |
 |---------|---------|-----------|
 | `scrummaster-setup` | Scaffold the project context | `scrummaster/{product,product-guidelines,tech-stack,workflow}.md`, `scrummaster/code_styleguides/`, `scrummaster/index.md` |
-| `scrummaster-new-story` | Start a new story, generate spec + plan | `scrummaster/stories.md`, `scrummaster/stories/<id>/{spec,plan,metadata,index}` |
+| `scrummaster-newepic` | Create a new epic to group stories | `scrummaster/epics.md`, `scrummaster/epics/<id>/` |
+| `scrummaster-newstory` | Start a new story, generate spec + plan | `scrummaster/stories.md`, `scrummaster/stories/<id>/{spec,plan,metadata,index}` |
 | `scrummaster-implement` | Execute the plan | `scrummaster/stories.md`, `scrummaster/stories/<id>/plan.md` |
 | `scrummaster-status` | Show project progress | reads `scrummaster/stories.md` |
 | `scrummaster-revert` | Revert a story, phase, or task | reverts git history |
@@ -25,10 +26,27 @@ Scrummaster is packaged as standard agent skills, modeled after the [conductor](
 
 ## Usage
 
+Commands are namespaced, so invoke them as `/scrummaster:scrummaster-setup`:
+
 1. **Setup (once):** `/scrummaster:scrummaster-setup`
-2. **New story:** `/scrummaster:scrummaster-new-story "Add a dark mode toggle"`
-3. **Implement:** `/scrummaster:scrummaster-implement`
-4. **Monitor / revert / review:** `/scrummaster:scrummaster-status`, `/scrummaster:scrummaster-revert`, `/scrummaster:scrummaster-review`
+2. **New epic:** `/scrummaster:scrummaster-newepic "Billing"`
+3. **New story:** `/scrummaster:scrummaster-newstory "Add a dark mode toggle"`
+4. **Implement:** `/scrummaster:scrummaster-implement`
+5. **Monitor / revert / review:** `/scrummaster:scrummaster-status`, `/scrummaster:scrummaster-revert`, `/scrummaster:scrummaster-review`
+
+## Installation (user-wide)
+
+Symlink the repo into your global opencode config for live-sync (edits take effect on restart):
+
+```bash
+# Skills (auto-register as slash commands)
+for s in scrummaster-implement scrummaster-newepic scrummaster-newstory scrummaster-revert scrummaster-review scrummaster-setup scrummaster-status; do
+  ln -sfn "$(pwd)/skills/$s" ~/.config/opencode/skills/$s
+done
+
+# Namespaced commands (/scrummaster:...)
+ln -sfn "$(pwd)/commands/scrummaster" ~/.config/opencode/commands/scrummaster
+```
 
 ## Repository Structure
 

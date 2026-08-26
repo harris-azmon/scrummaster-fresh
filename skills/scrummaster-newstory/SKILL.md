@@ -1,5 +1,5 @@
 ---
-name: scrummaster-new-story
+name: scrummaster-newstory
 description: Plans a new story (feature, bug fix, or chore), generates spec/plan documents, and updates the registry.
 metadata:
   version: "1.0"
