@@ -1,0 +1,18 @@
+# Environment
+.env
+.envrc
+.venv
+venv/
+env/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[codz]
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+
+# Scratch
+tmp/
