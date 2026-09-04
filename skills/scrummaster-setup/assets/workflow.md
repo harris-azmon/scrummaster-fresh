@@ -6,9 +6,21 @@
     story's `plan` wiki page
 2.  **The Tech Stack is Deliberate:** Changes to the tech stack must be
     documented on the `tech-stack` wiki page *before* implementation
-3.  **Test-Driven Development:** Write unit tests before implementing
-    functionality
-4.  **High Code Coverage:** Aim for >80% code coverage for all modules
+3.  **Acceptance-Test-Driven:** Before implementing a task, write a failing
+    functional/acceptance test that asserts the observable behavior of the
+    ACID it belongs to. Implement against that test, not against an
+    isolated unit's internals.
+4.  **Confidence Over Coverage:** The gate is "does every ACID have a
+    passing functional test proving its acceptance criteria," not a raw
+    code-coverage percentage. Coverage numbers are informational only —
+    they measure lines touched, not behavior verified, and are easy to
+    inflate without proving anything. *(Rationale: an agent optimizes
+    directly against whatever signal it's given. A coverage-% or
+    mocked-unit-test target is a proxy an agent can satisfy without the
+    acceptance criterion actually holding — trivial tests inflate
+    coverage, and mocks can be made to pass without preserving real
+    behavior. Tying the gate to the ACID's own observable behavior removes
+    that gap.)*
 5.  **User Experience First:** Every decision should prioritize user experience
 6.  **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use
     `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
@@ -82,11 +94,21 @@ All tasks follow a strict lifecycle:
 
 3.  **Write Failing Tests (Red Phase):**
 
-    -   Create a new test file for the feature or bug fix.
-    -   Write one or more unit tests that clearly define the expected behavior
-        and acceptance criteria for the task.
+    -   Write a functional/acceptance test that exercises the task's ACID
+        through the real system (real dependencies, or realistic
+        containerized substitutes) and asserts its observable, user-facing
+        behavior. Organize the test by the ACID/functionality it verifies,
+        not by which internal module happens to implement it.
+    -   Only add a unit test alongside it if the task introduces isolated,
+        non-trivial pure logic (e.g. a numerical or algorithmic kernel)
+        where a fast, mock-free, function-in/value-out test materially
+        improves diagnosis. Do not add a unit test as a default or to
+        pad coverage — see `code_styleguides/general.md` → Abstraction
+        for why testability-only seams and mocks are a cost, not a
+        virtue, and are especially risky to leave for an agent to
+        maintain across sessions.
     -   **CRITICAL:** Run the tests and confirm that they fail as expected. This
-        is the "Red" phase of TDD. Do not proceed until you have failing tests.
+        is the "Red" phase. Do not proceed until you have failing tests.
 
 4.  **Implement to Pass Tests (Green Phase):**
 
@@ -102,10 +124,12 @@ All tasks follow a strict lifecycle:
         performance without changing the external behavior.
     -   Rerun tests to ensure they still pass after refactoring.
 
-6.  **Verify Coverage:** Run coverage reports using the project's chosen tools.
-    For example, in a Python project, this might look like: `bash pytest
-    --cov=app --cov-report=html` Target: >80% coverage for new code. The
-    specific tools and commands will vary by language and framework.
+6.  **Confirm ACID Coverage:** Confirm that the task's ACID has a passing
+    functional test asserting its acceptance criteria — this is the gate,
+    not a coverage percentage. A code-coverage report may still be run for
+    information (e.g. `pytest --cov=app --cov-report=html`), but a low or
+    unchanged number is not itself a blocker if the ACID's behavior is
+    proven; a high number is not itself sufficient if it isn't.
 
 7.  **Document Deviations:** If implementation differs from tech stack:
 
@@ -177,16 +201,21 @@ that also concludes a phase on the story's `plan` wiki page.
         (or `fossil_diff({brief:true, from_checkin:"<previous_checkpoint_hash>", to_checkin:"current"})`
         for a range) to get a precise list of all files modified during this
         phase.
-    -   **Step 2.3: Verify and Create Tests:** For each file in the list:
-        -   **CRITICAL:** First, check its extension. Exclude non-code files
-            (e.g., `.json`, `.md`, `.yaml`).
-        -   For each remaining code file, verify a corresponding test file
-            exists.
-        -   If a test file is missing, you **must** create one. Before writing
-            the test, **first, analyze other test files in the repository to
-            determine the correct naming convention and testing style.** The new
-            tests **must** validate the functionality described in this phase's
-            tasks (the `plan` wiki page).
+    -   **Step 2.3: Verify and Create Tests:** For each task/ACID completed in
+        this phase:
+        -   Verify a functional/acceptance test exists that asserts the
+            ACID's observable behavior end-to-end (through the real system,
+            not through mocked internals).
+        -   If missing, create one. Before writing it, **first analyze
+            existing functional tests in the repository to determine the
+            correct naming convention and testing style.** The new test
+            **must** validate the functionality described in this phase's
+            tasks (the `plan` wiki page), organized by that functionality —
+            not by which source file happens to implement it.
+        -   Do not create a test merely because a source file changed; a
+            file with no independently observable behavior of its own does
+            not need a dedicated test. Add a scoped unit test only for
+            isolated, complex pure logic per the Red Phase guidance above.
 
 3.  **Execute Automated Tests with Proactive Debugging:**
 
@@ -268,7 +297,8 @@ that also concludes a phase on the story's `plan` wiki page.
 Before marking any task complete, verify:
 
 -   [ ] All tests pass
--   [ ] Code coverage meets requirements (>80%)
+-   [ ] Every ACID touched by this task has a passing functional/acceptance
+    test proving its acceptance criteria
 -   [ ] Code follows project's code style guidelines (as defined in
     `code_styleguides/`)
 -   [ ] All public functions/methods are documented (e.g., docstrings, JSDoc,
@@ -311,20 +341,38 @@ language, framework, and build tools.**
 
 ## Testing Requirements
 
-### Unit Testing
+### Functional / Acceptance Testing (primary gate)
 
--   Every module must have corresponding tests.
--   Use appropriate test setup/teardown mechanisms (e.g., fixtures,
-    beforeEach/afterEach).
--   Mock external dependencies.
--   Test both success and failure cases.
+-   This is the suite that gates task completion, phase checkpoints, and
+    the Definition of Done — not unit tests or a coverage percentage.
+-   Every ACID gets a test that exercises it through the real system: real
+    HTTP calls, a real (or realistically containerized) database, real
+    authentication — whatever the ACID actually depends on. Mock only
+    boundaries that are genuinely impractical to run for real (a
+    third-party network service, a non-deterministic clock), and never an
+    internal collaborator.
+-   Organize test files by the user-facing functionality/ACID they verify,
+    not by which internal module implements it — the two will drift apart
+    as the implementation is refactored, and only the former should force
+    a test to change.
+-   Covers what used to be listed separately as "integration testing":
+    complete user flows, database transactions, authentication and
+    authorization, form submissions — these are all part of proving an
+    ACID's behavior, not a separate tier.
 
-### Integration Testing
+### Unit Testing (supplementary, scoped)
 
--   Test complete user flows
--   Verify database transactions
--   Test authentication and authorization
--   Check form submissions
+-   Reserve for isolated, non-trivial pure logic — numerical/algorithmic
+    kernels, parsers, edge-case-heavy pure functions — where a fast,
+    mock-free, function-in/value-out test gives better diagnostic
+    precision than the functional suite alone.
+-   Do not write a unit test merely to raise coverage, exercise a trivial
+    code path, or because "every module should have tests." If a unit
+    test's arrange phase needs a mock of an internal collaborator, that's
+    a signal the behavior belongs in the functional suite instead.
+-   Never introduce an interface, DI seam, or factory solely to make
+    something unit-testable in isolation — see
+    `code_styleguides/general.md` → Abstraction.
 
 ### Mobile Testing
 
@@ -355,9 +403,11 @@ Before requesting review:
 
 3.  **Testing**
 
-    -   Unit tests comprehensive
-    -   Integration tests pass
-    -   Coverage adequate (>80%)
+    -   Every ACID touched has a passing functional/acceptance test
+    -   Unit tests (where present) are scoped to isolated pure logic, not
+        padding or mocked-internals tests
+    -   Coverage report reviewed for information; not itself a pass/fail
+        criterion
 
 4.  **Security**
 
@@ -415,8 +465,11 @@ fossil commit -m "style(mobile): Improve button touch targets"
 A task is complete when:
 
 1.  All code implemented to specification
-2.  Unit tests written and passing
-3.  Code coverage meets project requirements
+2.  Every ACID for this task has a passing functional/acceptance test
+    proving its acceptance criteria
+3.  Any supplementary unit tests (isolated pure logic only) are written and
+    passing; code coverage is reviewed for information, not required to
+    meet a percentage
 4.  Documentation complete (if applicable)
 5.  Code passes all configured linting and static analysis checks
 6.  Works beautifully on mobile (if applicable)
@@ -429,7 +482,8 @@ A task is complete when:
 ### Critical Bug in Production
 
 1.  Create hotfix branch from main
-2.  Write failing test for bug
+2.  Write a failing functional/acceptance test that reproduces the bug's
+    user-visible effect
 3.  Implement minimal fix
 4.  Test thoroughly including mobile
 5.  Deploy immediately
@@ -456,7 +510,7 @@ A task is complete when:
 ### Pre-Deployment Checklist
 
 -   [ ] All tests passing
--   [ ] Coverage >80%
+-   [ ] Every ACID in this release has a passing functional/acceptance test
 -   [ ] No linting errors
 -   [ ] Mobile testing complete
 -   [ ] Environment variables configured
