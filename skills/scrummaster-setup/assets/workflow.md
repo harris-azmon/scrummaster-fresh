@@ -2,9 +2,10 @@
 
 ## Guiding Principles
 
-1.  **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
+1.  **The Plan is the Source of Truth:** All work must be tracked on the
+    story's `plan` wiki page
 2.  **The Tech Stack is Deliberate:** Changes to the tech stack must be
-    documented in `tech-stack.md` *before* implementation
+    documented on the `tech-stack` wiki page *before* implementation
 3.  **Test-Driven Development:** Write unit tests before implementing
     functionality
 4.  **High Code Coverage:** Aim for >80% code coverage for all modules
@@ -12,17 +13,72 @@
 6.  **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use
     `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
 
+## Flow Control (Kanban WIP Limits)
+
+Scrummaster's board has three effective lanes: **Ready** (stories at `[~]`,
+being drafted/implemented by an agent), **Review** (stories at `[x]` in the
+registry whose metadata page has `review_entered_at` set but `done_at`
+still `null` — i.e. implementation finished but acceptance hasn't), and
+**Done** (`done_at` set). There is no queueing *within* Ready — one agent
+runs spec → plan → implement back-to-back on a story — so a WIP limit there
+is a resource cap, not a flow-discipline device. Review is where a human
+reviewer's fixed bandwidth meets elastic agent throughput, so its limit is
+the one that actually governs the system's pull rate.
+
+Set these here if you want `scrummaster-implement` to stop pulling new
+stories when a lane is full, and `scrummaster-status` to report WIP and
+Review-queue age against them. Leave any of them unset (or omit this
+section) to disable that limit — the default is uncapped, matching prior
+behavior.
+
+-   **`ready_wip_limit`**: max stories concurrently at `[~]`. Set this to the
+    number of concurrent agent workers you actually run against this
+    checkout — it's a concurrency cap, not a convention. *(unset = uncapped)*
+-   **`review_wip_limit`**: max stories concurrently in Review. This is the
+    throttle valve: size it with Little's Law (`WIP = Throughput ×
+    Cycle Time`) from your real review throughput and tolerable acceptance
+    time, not by guessing. *(unset = uncapped)*
+-   **`review_sla_hours`**: if a story has been in Review longer than this,
+    `scrummaster-status` flags it regardless of whether Review is within its
+    WIP cap — a card can be "within limit" and still be stale if review
+    capacity is bursty. *(unset = no SLA flag)*
+-   **`claim_lease_hours`**: how long a story's claim (see below) stays valid
+    without being renewed before another agent may take it over. Set this if
+    you run multiple concurrent agent workers and want a crashed/abandoned
+    worker's claim to expire automatically rather than blocking the story
+    forever. *(unset = claims never expire on their own; a stuck claim needs
+    manual intervention — e.g. `scrummaster-revert` on the story, which
+    clears it)*
+
+### Story Claims (multi-agent safety)
+
+`ready_wip_limit` caps how many *different* stories can be in flight at
+once; it does nothing to stop two concurrent `scrummaster-implement` runs
+from both picking the *same* story. Claims solve that: each story's
+metadata carries `claimed_by` (a short id `scrummaster-implement` generates
+once per run) and `claimed_at`. Before moving a story to `[~]`,
+`scrummaster-implement` checks the claim, and re-checks it immediately
+before writing, to keep the race window as narrow as possible.
+
+**This is best-effort, not a real lock.** Fossil wiki writes aren't
+compare-and-swap — two agents can still both read "unclaimed" in the same
+instant and both write a claim. It shrinks the collision window a lot (a
+single `wiki_read` + `wiki_write` pair right before the state change,
+instead of the whole story-selection conversation) but doesn't eliminate
+it. If you need a hard guarantee, don't run two agents against the same
+checkout without external coordination.
+
 ## Task Workflow
 
 All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow
 
-1.  **Select Task:** Choose the next available task from `plan.md` in sequential
-    order
+1.  **Select Task:** Choose the next available task from the story's `plan`
+    wiki page in sequential order
 
-2.  **Mark In Progress:** Before beginning work, edit `plan.md` and change the
-    task from `[ ]` to `[~]`
+2.  **Mark In Progress:** Before beginning work, edit the plan page's text and
+    change the task from `[ ]` to `[~]`, then write it back (`wiki_write`)
 
 3.  **Write Failing Tests (Red Phase):**
 
@@ -54,16 +110,18 @@ All tasks follow a strict lifecycle:
 7.  **Document Deviations:** If implementation differs from tech stack:
 
     -   **STOP** implementation
-    -   Update `tech-stack.md` with new design
+    -   Update the `tech-stack` wiki page with the new design
     -   Add dated note explaining the change
     -   Resume implementation
 
 8.  **Commit Code Changes:**
 
-    -   Add all code changes related to the task (`fossil add <files>`).
+    -   Add all code changes related to the task: `fossil_add({paths:[...]})`.
     -   Propose a clear, concise commit message e.g, `feat(ui): Create basic
         HTML structure for calculator`.
-    -   Perform the commit: `fossil commit -m "<message>"`.
+    -   Perform the commit: `fossil_commit({message:"<message>"})`. Its result
+        carries the new commit's `hash`/`hash_short` directly — nothing further
+        is needed to obtain it.
 
 9.  **Record Task Summary:**
 
@@ -71,20 +129,14 @@ All tasks follow a strict lifecycle:
         message. The summary should include the task name, a summary of changes,
         a list of all created/modified files, and the core "why" for the change.
 
-10. **Get and Record Task Commit Hash:**
+10. **Update the Plan Page:**
 
-    -   **Step 10.1: Get Commit Hash:** Obtain the hash of the *just-completed
-        commit* (`fossil info` or `fossil timeline -n 1`).
-    -   **Step 10.2: Update Plan:** Read `plan.md`, find the line for the
-        completed task, update its status from `[~]` to `[x]`, and append the
-        first 7 characters of the *just-completed commit's* hash.
-    -   **Step 10.3: Write Plan:** Write the updated content back to `plan.md`.
-
-11. **Commit Plan Update:**
-
-    -   **Action:** Add the modified `plan.md` file (`fossil add scrummaster/stories/<story_id>/plan.md`).
-    -   **Action:** Commit this change with a descriptive message (e.g.,
-        `scrummaster(plan): Mark task 'Create user model' as complete`).
+    -   Read the story's `plan` wiki page (`wiki_read`), find the line for the
+        completed task, update its status from `[~]` to `[x]`, and append
+        `hash_short` from step 8's commit result.
+    -   Write the updated content back: `wiki_write({page:"stories/<story_id>/plan", ...})`.
+    -   Nothing to add/commit for this — it's a self-committing wiki edit, not a
+        checkout file change.
 
 ### Task Correction & Plan Amendment Workflows
 
@@ -97,19 +149,19 @@ When an implemented task or phase requires corrections, amendments, or additions
     during or after a code review, instruct the agent to review your changes
     (e.g., *"run a review"* or triggering the action manually in compatible
     clients). The review agent will automatically append a `Review Fixes` phase
-    to `plan.md` so that correction tasks are formally tracked and
-    checkpointed.
+    to the story's `plan` wiki page so that correction tasks are formally
+    tracked and checkpointed.
 3.  **Logical State Reversions (`scrummaster-revert`):** If a task implementation
     is fundamentally flawed or needs to be redone, instruct the agent to revert
     the changes (e.g., *"revert the last task"* or triggering the action
     manually in compatible clients). This reverts the affected files with
-    Fossil (`fossil revert`) and resets the task state in `plan.md` back to
-    pending `[ ]` to allow a clean restart.
+    Fossil (`fossil_revert`) and resets the task state on the `plan` wiki page
+    back to pending `[ ]` to allow a clean restart.
 
 ### Phase Completion Verification and Checkpointing Protocol
 
 **Trigger:** This protocol is executed immediately after a task is completed
-that also concludes a phase in `plan.md`.
+that also concludes a phase on the story's `plan` wiki page.
 
 1.  **Announce Protocol Start:** Inform the user that the phase is complete and
     the verification and checkpointing protocol has begun.
@@ -117,13 +169,14 @@ that also concludes a phase in `plan.md`.
 2.  **Ensure Test Coverage for Phase Changes:**
 
     -   **Step 2.1: Determine Phase Scope:** To identify the files changed in
-        this phase, you must first find the starting point. Read `plan.md` to
-        find the commit hash of the *previous* phase's checkpoint. If no
-        previous checkpoint exists, the scope is all changes since the first
-        commit.
-    -   **Step 2.2: List Changed Files:** Execute `fossil changes --differ` (or
-        `fossil diff --name-only <previous_checkpoint_hash> current` for a range)
-        to get a precise list of all files modified during this phase.
+        this phase, you must first find the starting point. `wiki_read` the
+        `plan` page to find the commit hash of the *previous* phase's
+        checkpoint. If no previous checkpoint exists, the scope is all changes
+        since the first commit.
+    -   **Step 2.2: List Changed Files:** Call `fossil_changes({differ:true})`
+        (or `fossil_diff({brief:true, from_checkin:"<previous_checkpoint_hash>", to_checkin:"current"})`
+        for a range) to get a precise list of all files modified during this
+        phase.
     -   **Step 2.3: Verify and Create Tests:** For each file in the list:
         -   **CRITICAL:** First, check its extension. Exclude non-code files
             (e.g., `.json`, `.md`, `.yaml`).
@@ -133,7 +186,7 @@ that also concludes a phase in `plan.md`.
             the test, **first, analyze other test files in the repository to
             determine the correct naming convention and testing style.** The new
             tests **must** validate the functionality described in this phase's
-            tasks (`plan.md`).
+            tasks (the `plan` wiki page).
 
 3.  **Execute Automated Tests with Proactive Debugging:**
 
@@ -149,9 +202,9 @@ that also concludes a phase in `plan.md`.
 
 4.  **Propose a Detailed, Actionable Manual Verification Plan:**
 
-    -   **CRITICAL:** To generate the plan, first analyze `product.md`,
-        `product-guidelines.md`, and `plan.md` to determine the user-facing
-        goals of the completed phase.
+    -   **CRITICAL:** To generate the plan, first analyze the `product`,
+        `product-guidelines`, and `plan` wiki pages to determine the
+        user-facing goals of the completed phase.
     -   You **must** generate a step-by-step plan that walks the user through
         the verification process, including any necessary commands and specific,
         expected outcomes.
@@ -184,7 +237,10 @@ that also concludes a phase in `plan.md`.
 6.  **Identify Target Commit for Report:**
 
     -   Do NOT create a new empty commit for checkpointing.
-    -   Identify the hash of the last functional commit made during this phase. This will be the target for the verification report.
+    -   The hash of the last functional commit made during this phase is
+        already known — it's the `hash`/`hash_short` from that task's own
+        `fossil_commit` result (Standard Task Workflow step 8). This is the
+        target for the verification report.
 
 7.  **Record Auditable Verification Report:**
 
@@ -192,27 +248,20 @@ that also concludes a phase in `plan.md`.
         including the automated test command, the manual verification steps, and
         the user's confirmation.
     -   **Step 7.2: Record:** Fossil has no Git Notes; append the verification
-        report to the phase's checkpoint entry in `plan.md`, or record it in the
-        commit message of the plan-update commit.
+        report to the phase's checkpoint entry on the `plan` wiki page.
 
-8.  **Get and Record Phase Checkpoint Hash:**
+8.  **Update the Plan Page's Checkpoint:**
 
-    -   **Step 8.1: Get Commit Hash:** Obtain the hash of the latest functional
-        commit (`fossil info` or `fossil timeline -n 1`).
-    -   **Step 8.2: Update Plan:** Read `plan.md`, find the heading for the
-        completed phase, and append the first 7 characters of the commit hash in
-        the format `[checkpoint: <hash>]`.
-    -   **Step 8.3: Write Plan:** Write the updated content back to `plan.md`.
+    -   `wiki_read` the `plan` page, find the heading for the completed phase,
+        and append the phase's last task's `hash_short` (from step 6, already
+        in hand) in the format `[checkpoint: <hash_short>]`.
+    -   `wiki_write({page:"stories/<story_id>/plan", ...})` with the updated
+        content. Nothing to add/commit for this — it's a self-committing wiki
+        edit, not a checkout file change.
 
-9.  **Commit Plan Update:**
-
-    -   **Action:** Add the modified `plan.md` file (`fossil add <path>`).
-    -   **Action:** Commit this change with a descriptive message following the
-        format `scrummaster(plan): Mark phase '<PHASE NAME>' as complete`.
-
-10. **Announce Completion:** Inform the user that the phase is complete and the
+9.  **Announce Completion:** Inform the user that the phase is complete and the
     checkpoint has been created, with the detailed verification report recorded
-    in the plan or commit message.
+    on the plan page.
 
 ### Quality Gates
 
@@ -371,7 +420,7 @@ A task is complete when:
 4.  Documentation complete (if applicable)
 5.  Code passes all configured linting and static analysis checks
 6.  Works beautifully on mobile (if applicable)
-7.  Implementation notes added to `plan.md`
+7.  Implementation notes added to the `plan` wiki page
 8.  Changes committed with proper message
 9.  Task summary included in the commit message
 

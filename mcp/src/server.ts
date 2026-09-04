@@ -9,12 +9,31 @@ import {
 	summarizeStatus,
 	setAcidStatuses,
 	pushSpecAcids,
+	getInfo,
+	initRepo,
+	openRepo,
+	getChanges,
+	getDiff,
+	listFiles,
+	addPaths,
+	addRemove,
+	commit,
+	revertPaths,
+	updateCheckin,
+	getTimeline,
+	listBranches,
+	applyTicketSchema,
+	setSetting,
+	writeWikiPage,
+	readWikiPage,
+	readWikiPagesBatch,
+	listWikiPages,
 } from "./fossil.js";
-import { parseSpecAcids, scanSpecFile, storyIdFromSpecPath } from "./spec.js";
+import { parseSpecAcids } from "./spec.js";
 
 const server = new McpServer({
-	name: "scrummaster-acid",
-	version: "0.1.0",
+	name: "scrummaster-fossil",
+	version: "0.2.0",
 });
 
 // The cwd the tools operate in. MCP stdio servers run in the project cwd by
@@ -88,29 +107,24 @@ server.tool(
 	},
 );
 
-// Parse the ACIDs defined in a scrummaster story spec.md.
+// Parse the ACIDs defined in a story's `stories/<story_id>/spec` wiki page.
 server.tool(
-	"acid_spec_acids",
+	"acid_wiki_spec_acids",
 	{
-		spec_path: z.string().describe("Path to a story spec.md (e.g. scrummaster/stories/<id>/spec.md)"),
+		story_id: z.string().describe("The story_id whose spec page to read (stories/<story_id>/spec)"),
 	},
-	async ({ spec_path }) => {
+	async ({ story_id }) => {
 		try {
-			const acids = await scanSpecFile(spec_path);
+			const { exists, content } = await readWikiPage(cwd, `stories/${story_id}/spec`);
+			if (!exists) {
+				return {
+					content: [{ type: "text", text: `Error: wiki page stories/${story_id}/spec not found` }],
+					isError: true,
+				};
+			}
+			const acids = parseSpecAcids(content ?? "");
 			return {
-				content: [
-					{
-						type: "text",
-						text: JSON.stringify(
-							{
-								story_id: storyIdFromSpecPath(spec_path),
-								acids,
-							},
-							null,
-							2,
-						),
-					},
-				],
+				content: [{ type: "text", text: JSON.stringify({ story_id, acids }, null, 2) }],
 			};
 		} catch (error: any) {
 			return {
@@ -243,6 +257,252 @@ server.tool(
 		};
 	},
 );
+
+// --- Generic Fossil VCS tools ---
+
+server.tool("fossil_info", {}, async () => {
+	try {
+		const info = await getInfo(cwd);
+		return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
+	} catch (error: any) {
+		return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+	}
+});
+
+server.tool(
+	"fossil_init",
+	{ repo_name: z.string().describe("Repository filename stem (e.g. 'myproject' -> myproject.fossil)") },
+	async ({ repo_name }) => {
+		try {
+			const result = await initRepo(cwd, repo_name);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_open",
+	{ repository_file: z.string().describe("Path to the .fossil repository file to open a checkout of") },
+	async ({ repository_file }) => {
+		try {
+			const result = await openRepo(cwd, repository_file);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_changes",
+	{ differ: z.boolean().optional().describe("Pass --differ (show diffs of uncommitted changes)") },
+	async ({ differ }) => {
+		try {
+			const result = await getChanges(cwd, { differ });
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_diff",
+	{
+		brief: z.boolean().optional().describe("Show only changed filenames (fossil --brief)"),
+		numstat: z.boolean().optional().describe("Show only per-file/total added+removed line counts (fossil --numstat)"),
+		from_checkin: z.string().optional().describe("Source check-in (fossil --from)"),
+		to_checkin: z.string().optional().describe("Target check-in, e.g. 'current' (fossil --to)"),
+		paths: z.array(z.string()).optional().describe("Limit the diff to these paths"),
+	},
+	async ({ brief, numstat, from_checkin, to_checkin, paths }) => {
+		try {
+			const result = await getDiff(cwd, {
+				brief,
+				numstat,
+				fromCheckin: from_checkin,
+				toCheckin: to_checkin,
+				paths,
+			});
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool("fossil_ls", {}, async () => {
+	try {
+		const result = await listFiles(cwd);
+		return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+	} catch (error: any) {
+		return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+	}
+});
+
+server.tool(
+	"fossil_add",
+	{ paths: z.array(z.string()).optional().describe("Paths to add (default ['.'])") },
+	async ({ paths }) => {
+		try {
+			const result = await addPaths(cwd, paths);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool("fossil_addremove", {}, async () => {
+	try {
+		const result = await addRemove(cwd);
+		return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+	} catch (error: any) {
+		return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+	}
+});
+
+server.tool(
+	"fossil_commit",
+	{
+		message: z.string().describe("Commit message"),
+		paths: z.array(z.string()).optional().describe("Limit the commit to these paths (default: all changes)"),
+	},
+	async ({ message, paths }) => {
+		try {
+			const result = await commit(cwd, { message, paths });
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_revert",
+	{ paths: z.array(z.string()).describe("Paths to revert to their last committed state") },
+	async ({ paths }) => {
+		try {
+			const result = await revertPaths(cwd, paths);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_update",
+	{ target: z.string().describe("Check-in hash, tag, branch name, 'current', or 'latest'") },
+	async ({ target }) => {
+		try {
+			const result = await updateCheckin(cwd, target);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_timeline",
+	{ limit: z.number().optional().describe("Number of check-ins to show (default 10)") },
+	async ({ limit }) => {
+		try {
+			const result = await getTimeline(cwd, limit);
+			return { content: [{ type: "text", text: result.stdout }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool("fossil_branch_list", {}, async () => {
+	try {
+		const result = await listBranches(cwd);
+		return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+	} catch (error: any) {
+		return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+	}
+});
+
+server.tool(
+	"fossil_apply_ticket_schema",
+	{ schema_sql: z.string().optional().describe("Override SQL to apply (default: the packaged ticket_schema.sql)") },
+	async ({ schema_sql }) => {
+		try {
+			const result = await applyTicketSchema(cwd, schema_sql);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_set_setting",
+	{ name: z.string().describe("Setting name, e.g. 'autosync'"), value: z.string().describe("Setting value, e.g. 'off'") },
+	async ({ name, value }) => {
+		try {
+			const result = await setSetting(cwd, name, value);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+// --- Fossil wiki tools (the primary store for all scrummaster docs/registries/metadata) ---
+
+server.tool(
+	"wiki_write",
+	{
+		page: z.string().describe("Wiki page name, e.g. 'stories/<id>/spec'"),
+		content: z.string().describe("Full page content (this replaces the page's content entirely)"),
+		mimetype: z.enum(["markdown", "plain"]).optional().describe("Defaults to 'markdown'"),
+	},
+	async ({ page, content, mimetype }) => {
+		try {
+			const result = await writeWikiPage(cwd, page, content, mimetype ?? "markdown");
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool("wiki_read", { page: z.string().describe("Wiki page name to read") }, async ({ page }) => {
+	try {
+		const result = await readWikiPage(cwd, page);
+		return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+	} catch (error: any) {
+		return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+	}
+});
+
+server.tool(
+	"wiki_read_batch",
+	{ pages: z.array(z.string()).describe("Wiki page names to read in one round trip") },
+	async ({ pages }) => {
+		try {
+			const result = await readWikiPagesBatch(cwd, pages);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool("wiki_list", {}, async () => {
+	try {
+		const result = await listWikiPages(cwd);
+		return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+	} catch (error: any) {
+		return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+	}
+});
 
 // Legacy runner re-export so tests can inject a mock.
 export { defaultRunner };
