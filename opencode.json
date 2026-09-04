@@ -4,10 +4,12 @@
     "paths": ["./skills"]
   },
   "mcp": {
-    "scrummaster-acid": {
+    "scrummaster-fossil": {
       "type": "local",
       "command": ["node", "./mcp/dist/server.js"],
-      "cwd": "./mcp"
+      "environment": {
+        "FOSSIL_CWD": "."
+      }
     }
   }
 }

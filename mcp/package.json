@@ -1,17 +1,19 @@
 {
-  "name": "scrummaster-acid-mcp",
-  "version": "0.1.0",
-  "description": "MCP server wrapping Scrummaster's Fossil ticket / ACID operations. Adapted from the acid-cli fossil client; plan.md [x] markers remain the source of truth for completion.",
+  "name": "scrummaster-fossil-mcp",
+  "version": "0.2.0",
+  "description": "MCP server wrapping all of Scrummaster's Fossil access: generic VCS operations (status/diff/commit/revert/etc.), the wiki (the primary store for scrummaster docs, registries, specs, plans, and metadata), and Fossil ticket / ACID operations. Ticket handling adapted from the acid-cli fossil client; plan.md [x] markers remain the source of truth for completion.",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "tsc && node --test dist/*.test.js"
   },
   "keywords": [
     "mcp",
     "acid",
     "fossil",
+    "wiki",
     "scrummaster"
   ],
   "license": "Apache-2.0",
