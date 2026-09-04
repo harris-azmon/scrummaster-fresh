@@ -96,14 +96,19 @@ Define branding, voice, tone, and UX principles.
     remainder if the user's context suggests it matters (e.g. a trading,
     real-time, streaming, or otherwise latency/throughput-sensitive
     system) — don't force a full 5-way ranking when one clearly doesn't
-    apply. Record the result on the `tech-stack` wiki page under a new
-    `## Engineering Priorities` heading, as an ordered list. This
-    ordering is a deliberate tech-stack decision like any other in this
-    file: it governs concrete implementation tradeoffs (e.g. whether to
-    prefer value types/structs over heap allocation, when pooling or
-    caching is justified, whether to accept an abstraction's overhead for
-    the sake of simplicity) and should carry the same "documented before
-    implementation" weight as the rest of the stack.
+    apply. Record **only the priorities the user actually ranked** (one
+    item, or two if a follow-up was asked) on the `tech-stack` wiki page
+    under a new `## Engineering Priorities` heading, as an ordered list —
+    do not append the remaining, un-asked-about priorities in any order.
+    Their absence from the list means no explicit preference was stated
+    for them, and default judgment (see `code_styleguides/general.md` →
+    Simplicity) applies. This ordering is a deliberate tech-stack decision
+    like any other in this file: it governs concrete implementation
+    tradeoffs (e.g. whether to prefer value types/structs over heap
+    allocation, when pooling or caching is justified, whether to accept an
+    abstraction's overhead for the sake of simplicity) and should carry
+    the same "documented before implementation" weight as the rest of the
+    stack.
 3.  **Confirmation & Refinement Loop:** Present the draft; offer **Approve / Manual Edit / Refine**.
 4.  **Action:** Once approved, `wiki_write({page:"tech-stack", content, mimetype:"markdown"})`.
 
