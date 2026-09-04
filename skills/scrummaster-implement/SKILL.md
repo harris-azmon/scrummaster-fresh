@@ -28,27 +28,34 @@ You are the **Scrummaster Implementer**. Your goal is to execute the tasks defin
 
 ## 2. Story Selection
 
-1.  **Check Flow Control (WIP Backpressure):** Read the **Flow Control** settings from the `workflow` page content already loaded in §1. If `ready_wip_limit` is set, count stories currently at `[~]` in the `stories` registry page; if it's at or over the limit, this is Ready-lane backpressure. If `review_wip_limit` is set, take every `[x]` story ID from the registry and call `wiki_read_batch({pages: ids.map(id => \`stories/${id}/metadata\`)})` in one round trip; count how many have `review_entered_at` set and `done_at` still `null` — if at or over the limit, this is Review-lane backpressure, the more important one, since it means agent output is outrunning acceptance capacity. In either case, announce which lane is full and by how much, and ask a **Yes/No question**: wait (do not pull a new story) or override and proceed anyway. If neither limit is configured, skip this check.
-2.  **Check for User Input:** First, check if the user provided a story name in their request.
-3.  **Locate and Parse Stories Registry:**
+1.  **Establish Session Agent ID:** If this skill run hasn't already generated one, generate a short random `agent_id` now (e.g. 8 lowercase hex characters) and hold it in-memory for the rest of this run. This is what claims (step 6 below, and §3 step 2) are recorded under — it identifies *this run*, not a persistent identity.
+2.  **Check Flow Control (WIP Backpressure):** Read the **Flow Control** settings from the `workflow` page content already loaded in §1. If `ready_wip_limit` is set, count stories currently at `[~]` in the `stories` registry page; if it's at or over the limit, this is Ready-lane backpressure. If `review_wip_limit` is set, take every `[x]` story ID from the registry and call `wiki_read_batch({pages: ids.map(id => \`stories/${id}/metadata\`)})` in one round trip; count how many have `review_entered_at` set and `done_at` still `null` — if at or over the limit, this is Review-lane backpressure, the more important one, since it means agent output is outrunning acceptance capacity. In either case, announce which lane is full and by how much, and ask a **Yes/No question**: wait (do not pull a new story) or override and proceed anyway. If neither limit is configured, skip this check.
+3.  **Check for User Input:** First, check if the user provided a story name in their request.
+4.  **Locate and Parse Stories Registry:**
     -   `wiki_read({page:"stories"})`.
     -   Parse the registry to identify all stories, their status (`[ ]`, `[~]`, `[x]`), and their story IDs. Ignore any lines under a `## Archived` heading.
     -   **CRITICAL:** If the page doesn't exist or has no active entries, announce that no stories are available to implement and HALT.
-4.  **Select Story:** (same-story or first-incomplete)
+5.  **Select Story:** (same-story or first-incomplete)
     -   **If a story name was provided:**
         -   Search for a match in the parsed registry.
-        -   **If a unique match is found:** `wiki_read({page:"stories/<story_id>/metadata"})`. If it contains a `depends_on` array, use the `acid_check_dependencies` MCP tool to verify every listed ACID has `accepted` status. If any ACID is not `accepted`, announce which ACIDs are not yet accepted and halt—do not proceed with implementation until those ACIDs are reviewed and set to `accepted` via `scrummaster-review`. Ask the user for confirmation (Yes/No) to proceed with that story.
+        -   **If a unique match is found:** `wiki_read({page:"stories/<story_id>/metadata"})`. If it contains a `depends_on` array, use the `acid_check_dependencies` MCP tool to verify every listed ACID has `accepted` status. If any ACID is not `accepted`, announce which ACIDs are not yet accepted and halt—do not proceed with implementation until those ACIDs are reviewed and set to `accepted` via `scrummaster-review`. **Check the claim** (see step 6 below) — if it's held by another agent and not stale, announce the collision and HALT (the user asked for this specific story by name, so don't silently substitute another one). Otherwise ask the user for confirmation (Yes/No) to proceed with that story.
         -   **If no match or ambiguous:** Ask the user to clarify, or present a multiple-choice list of available incomplete stories.
     -   **If no story name was provided:**
-        -   **Identify Next Story:** Find the first incomplete story in the registry.
-        -   **If found:** `wiki_read({page:"stories/<story_id>/metadata"})`. If it contains a `depends_on` array, use the `acid_check_dependencies` MCP tool to verify every listed ACID has `accepted` status. If any ACID is not `accepted`, announce which ACIDs are not yet accepted and halt—do not proceed with implementation until those ACIDs are reviewed and set to `accepted`. Propose this story to the user and ask for confirmation (Yes/No).
-        -   **If not found:** Announce that all stories are complete and HALT.
+        -   **Identify Next Story:** Walk incomplete stories in registry order. For each candidate, `wiki_read({page:"stories/<story_id>/metadata"})`; if it contains a `depends_on` array, use `acid_check_dependencies` and skip this candidate (continue to the next) if any listed ACID is not `accepted`. **Check the claim** (step 6) — if held by another agent and not stale, skip this candidate too and continue to the next.
+        -   **If a viable candidate is found:** Propose it to the user and ask for confirmation (Yes/No).
+        -   **If none found (all complete, all blocked on dependencies, or all claimed by other agents):** Announce which of those applies and HALT.
+6.  **Claim Check (used by step 5):** Given a candidate story's metadata, decide:
+    -   **Unclaimed** (`claimed_by` is `null`): available.
+    -   **Claimed by this session** (`claimed_by` equals this run's `agent_id`): available — this is a resume of a story this same run already claimed.
+    -   **Claimed by another agent, and stale** (`claim_lease_hours` is configured in `workflow` and `now − claimed_at ≥ claim_lease_hours`): available, but announce that a stale claim is being taken over and by whom it was previously held.
+    -   **Claimed by another agent, not stale** (or `claim_lease_hours` unconfigured — claims never auto-expire): **not available.**
 ## 3. Story Implementation
 
 1.  **Announce Action:** Announce which story you are beginning to implement.
 2.  **Update Status to 'In Progress':**
-    -   Before beginning work, edit the `stories` registry page's text to flip this story's marker to `[~]`, then `wiki_write({page:"stories", content, mimetype:"markdown"})`.
-    -   `wiki_read({page:"stories/<story_id>/metadata"})`, set `ready_entered_at` to `now_iso()`, `wiki_write` it back (mimetype `plain`).
+    -   **Re-check and claim, right before the state change:** `wiki_read({page:"stories/<story_id>/metadata"})` fresh (don't reuse the read from §2 — time has passed for user confirmation, and this narrows the collision window as much as this best-effort scheme can). Re-apply the Claim Check (§2 step 6). If it now reads "not available" (another agent claimed it in the interim), announce the collision and HALT — do not proceed or overwrite their claim. Otherwise set `claimed_by` to this run's `agent_id` and `claimed_at` to `now_iso()` alongside `ready_entered_at` (below), in the same write.
+    -   Edit the `stories` registry page's text to flip this story's marker to `[~]`, then `wiki_write({page:"stories", content, mimetype:"markdown"})`.
+    -   Set `ready_entered_at` to `now_iso()` on the metadata object read above (together with the claim fields), `wiki_write` it back (mimetype `plain`).
     -   Nothing to add/commit — both writes are self-committing wiki edits.
 3.  **Load Story Context:**
     -   `wiki_read({page:"stories/<story_id>/spec"})` and `wiki_read({page:"stories/<story_id>/plan"})`.

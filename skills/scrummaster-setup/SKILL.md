@@ -102,7 +102,7 @@ Select style guides from this plugin's own `assets/code_styleguides/` (read via 
 ### 2.5 Workflow Configuration (`workflow` wiki page)
 
 1.  **Mode Selection:** Ask a **single-choice question**: **Default** or **Customize**.
-2.  **Customization Flow (if selected):** Interview for coverage percentage, commit frequency, summary storage, and (if the user runs or expects to run multiple concurrent agent workers, or wants Review-queue staleness flagged) the **Flow Control** WIP limits: `ready_wip_limit`, `review_wip_limit`, `review_sla_hours`. Leave any unset if the user has no opinion — uncapped/no-flag is the default.
+2.  **Customization Flow (if selected):** Interview for coverage percentage, commit frequency, summary storage, and (if the user runs or expects to run multiple concurrent agent workers, or wants Review-queue staleness flagged) the **Flow Control** settings: `ready_wip_limit`, `review_wip_limit`, `review_sla_hours`, `claim_lease_hours`. Leave any unset if the user has no opinion — uncapped/no-flag/never-expire is the default.
 3.  **Explain:** Explain that `workflow` defines the "rules of the game" — every task follows TDD and high-quality standards, and (if set) the Flow Control limits govern how many stories can be in Ready or Review at once.
 4.  **Write Action:** `Read` `assets/workflow.md` (plugin file), apply customizations as text substitutions, then `wiki_write({page:"workflow", content, mimetype:"markdown"})`.
 

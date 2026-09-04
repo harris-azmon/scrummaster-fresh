@@ -42,6 +42,31 @@ behavior.
     `scrummaster-status` flags it regardless of whether Review is within its
     WIP cap — a card can be "within limit" and still be stale if review
     capacity is bursty. *(unset = no SLA flag)*
+-   **`claim_lease_hours`**: how long a story's claim (see below) stays valid
+    without being renewed before another agent may take it over. Set this if
+    you run multiple concurrent agent workers and want a crashed/abandoned
+    worker's claim to expire automatically rather than blocking the story
+    forever. *(unset = claims never expire on their own; a stuck claim needs
+    manual intervention — e.g. `scrummaster-revert` on the story, which
+    clears it)*
+
+### Story Claims (multi-agent safety)
+
+`ready_wip_limit` caps how many *different* stories can be in flight at
+once; it does nothing to stop two concurrent `scrummaster-implement` runs
+from both picking the *same* story. Claims solve that: each story's
+metadata carries `claimed_by` (a short id `scrummaster-implement` generates
+once per run) and `claimed_at`. Before moving a story to `[~]`,
+`scrummaster-implement` checks the claim, and re-checks it immediately
+before writing, to keep the race window as narrow as possible.
+
+**This is best-effort, not a real lock.** Fossil wiki writes aren't
+compare-and-swap — two agents can still both read "unclaimed" in the same
+instant and both write a claim. It shrinks the collision window a lot (a
+single `wiki_read` + `wiki_write` pair right before the state change,
+instead of the whole story-selection conversation) but doesn't eliminate
+it. If you need a hard guarantee, don't run two agents against the same
+checkout without external coordination.
 
 ## Task Workflow
 
