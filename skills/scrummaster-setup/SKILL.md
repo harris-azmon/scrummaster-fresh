@@ -86,8 +86,26 @@ Define branding, voice, tone, and UX principles.
 1.  **Determine Mode:**
     -   **Greenfield:** **Interactive** (hand-pick: languages, backend, frontend, database) or **Autogenerate** (recommend based on project goal).
     -   **Brownfield:** State the inferred stack; ask a **Yes/No question** if correct. If not, ask an **open question**.
-2.  **Confirmation & Refinement Loop:** Present the draft; offer **Approve / Manual Edit / Refine**.
-3.  **Action:** Once approved, `wiki_write({page:"tech-stack", content, mimetype:"markdown"})`.
+2.  **Engineering Priorities:** Ask the user to rank, from most to least
+    important: **Simplicity**, **Memory Use**, **Allocation / GC
+    Pressure**, **Throughput**, and **Latency**. Present it as a
+    single-choice question for "top priority," suffixing **Simplicity**
+    with `(Recommended: default choice for most product/CRUD-style
+    codebases — optimize only what's proven to need it)`, then a
+    follow-up single-choice question for the next-most-important of the
+    remainder if the user's context suggests it matters (e.g. a trading,
+    real-time, streaming, or otherwise latency/throughput-sensitive
+    system) — don't force a full 5-way ranking when one clearly doesn't
+    apply. Record the result on the `tech-stack` wiki page under a new
+    `## Engineering Priorities` heading, as an ordered list. This
+    ordering is a deliberate tech-stack decision like any other in this
+    file: it governs concrete implementation tradeoffs (e.g. whether to
+    prefer value types/structs over heap allocation, when pooling or
+    caching is justified, whether to accept an abstraction's overhead for
+    the sake of simplicity) and should carry the same "documented before
+    implementation" weight as the rest of the stack.
+3.  **Confirmation & Refinement Loop:** Present the draft; offer **Approve / Manual Edit / Refine**.
+4.  **Action:** Once approved, `wiki_write({page:"tech-stack", content, mimetype:"markdown"})`.
 
 ### 2.4 Code Style Guides
 

@@ -17,6 +17,13 @@ and frameworks used in this project.
 
 -   Prefer simple solutions over complex ones.
 -   Break down complex problems into smaller, manageable parts.
+-   Check `tech-stack.md`'s Engineering Priorities ranking before trading
+    simplicity for performance (or vice versa). If the project has
+    explicitly ranked memory use, allocation/GC pressure, throughput, or
+    latency above simplicity, that ordering governs the code paths it
+    targets — most code should still default to simple, but don't
+    "clean up" a deliberately non-simple hot path back toward simplicity
+    without checking why it's written that way.
 
 ## Abstraction
 
