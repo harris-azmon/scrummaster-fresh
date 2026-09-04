@@ -77,7 +77,7 @@ Format your output strictly as follows:
 - [ ] **ACID Ticket Cross-Check**: [Pass/Fail/Drift] - [Drift summary, if any]
 - [ ] **Style Compliance**: [Pass/Fail]
 - [ ] **New Tests**: [Yes/No]
-- [ ] **Test Coverage**: [Yes/No/Partial]
+- [ ] **ACID Test Coverage** (functional/acceptance test per ACID, not a code-coverage %): [Yes/No/Partial]
 - [ ] **Test Results**: [Passed/Failed] - [Summary or 'All passed']
 
 ## Findings

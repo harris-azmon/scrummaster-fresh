@@ -86,8 +86,31 @@ Define branding, voice, tone, and UX principles.
 1.  **Determine Mode:**
     -   **Greenfield:** **Interactive** (hand-pick: languages, backend, frontend, database) or **Autogenerate** (recommend based on project goal).
     -   **Brownfield:** State the inferred stack; ask a **Yes/No question** if correct. If not, ask an **open question**.
-2.  **Confirmation & Refinement Loop:** Present the draft; offer **Approve / Manual Edit / Refine**.
-3.  **Action:** Once approved, `wiki_write({page:"tech-stack", content, mimetype:"markdown"})`.
+2.  **Engineering Priorities:** Ask the user to rank, from most to least
+    important: **Simplicity**, **Memory Use**, **Allocation / GC
+    Pressure**, **Throughput**, and **Latency**. Present it as a
+    single-choice question for "top priority," suffixing **Simplicity**
+    with `(Recommended: default choice for most product/CRUD-style
+    codebases — optimize only what's proven to need it)`, then a
+    follow-up single-choice question for the next-most-important of the
+    remainder if the user's context suggests it matters (e.g. a trading,
+    real-time, streaming, or otherwise latency/throughput-sensitive
+    system) — don't force a full 5-way ranking when one clearly doesn't
+    apply. Record **only the priorities the user actually ranked** (one
+    item, or two if a follow-up was asked) on the `tech-stack` wiki page
+    under a new `## Engineering Priorities` heading, as an ordered list —
+    do not append the remaining, un-asked-about priorities in any order.
+    Their absence from the list means no explicit preference was stated
+    for them, and default judgment (see `code_styleguides/general.md` →
+    Simplicity) applies. This ordering is a deliberate tech-stack decision
+    like any other in this file: it governs concrete implementation
+    tradeoffs (e.g. whether to prefer value types/structs over heap
+    allocation, when pooling or caching is justified, whether to accept an
+    abstraction's overhead for the sake of simplicity) and should carry
+    the same "documented before implementation" weight as the rest of the
+    stack.
+3.  **Confirmation & Refinement Loop:** Present the draft; offer **Approve / Manual Edit / Refine**.
+4.  **Action:** Once approved, `wiki_write({page:"tech-stack", content, mimetype:"markdown"})`.
 
 ### 2.4 Code Style Guides
 
@@ -102,8 +125,19 @@ Select style guides from this plugin's own `assets/code_styleguides/` (read via 
 ### 2.5 Workflow Configuration (`workflow` wiki page)
 
 1.  **Mode Selection:** Ask a **single-choice question**: **Default** or **Customize**.
-2.  **Customization Flow (if selected):** Interview for coverage percentage, commit frequency, summary storage, and (if the user runs or expects to run multiple concurrent agent workers, or wants Review-queue staleness flagged) the **Flow Control** settings: `ready_wip_limit`, `review_wip_limit`, `review_sla_hours`, `claim_lease_hours`. Leave any unset if the user has no opinion — uncapped/no-flag/never-expire is the default.
-3.  **Explain:** Explain that `workflow` defines the "rules of the game" — every task follows TDD and high-quality standards, and (if set) the Flow Control limits govern how many stories can be in Ready or Review at once.
+2.  **Customization Flow (if selected):** Interview for commit frequency,
+    summary storage, and (if the user runs or expects to run multiple
+    concurrent agent workers, or wants Review-queue staleness flagged) the
+    **Flow Control** settings: `ready_wip_limit`, `review_wip_limit`,
+    `review_sla_hours`, `claim_lease_hours`. Leave any unset if the user has
+    no opinion — uncapped/no-flag/never-expire is the default.
+    (`workflow`'s testing gate is ACID-level functional coverage, not a
+    code-coverage percentage — there is nothing to customize there.)
+3.  **Explain:** Explain that `workflow` defines the "rules of the game" —
+    every task is driven by a failing acceptance/functional test before
+    implementation, held to high-quality standards, and (if set) the Flow
+    Control limits govern how many stories can be in Ready or Review at
+    once.
 4.  **Write Action:** `Read` `assets/workflow.md` (plugin file), apply customizations as text substitutions, then `wiki_write({page:"workflow", content, mimetype:"markdown"})`.
 
 ### 2.6 Fossil Ticket Schema (ACID tracking)
