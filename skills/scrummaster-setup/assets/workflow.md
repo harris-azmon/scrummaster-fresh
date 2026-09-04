@@ -12,6 +12,36 @@
 6.  **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use
     `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
 
+## Flow Control (Kanban WIP Limits)
+
+Scrummaster's board has three effective lanes: **Ready** (stories at `[~]`,
+being drafted/implemented by an agent), **Review** (stories at `[x]` in the
+registry whose `metadata.json` has `review_entered_at` set but `done_at`
+still `null` — i.e. implementation finished but acceptance hasn't), and
+**Done** (`done_at` set). There is no queueing *within* Ready — one agent
+runs spec → plan → implement back-to-back on a story — so a WIP limit there
+is a resource cap, not a flow-discipline device. Review is where a human
+reviewer's fixed bandwidth meets elastic agent throughput, so its limit is
+the one that actually governs the system's pull rate.
+
+Set these here if you want `scrummaster-implement` to stop pulling new
+stories when a lane is full, and `scrummaster-status` to report WIP and
+Review-queue age against them. Leave any of them unset (or omit this
+section) to disable that limit — the default is uncapped, matching prior
+behavior.
+
+-   **`ready_wip_limit`**: max stories concurrently at `[~]`. Set this to the
+    number of concurrent agent workers you actually run against this
+    checkout — it's a concurrency cap, not a convention. *(unset = uncapped)*
+-   **`review_wip_limit`**: max stories concurrently in Review. This is the
+    throttle valve: size it with Little's Law (`WIP = Throughput ×
+    Cycle Time`) from your real review throughput and tolerable acceptance
+    time, not by guessing. *(unset = uncapped)*
+-   **`review_sla_hours`**: if a story has been in Review longer than this,
+    `scrummaster-status` flags it regardless of whether Review is within its
+    WIP cap — a card can be "within limit" and still be stale if review
+    capacity is bursty. *(unset = no SLA flag)*
+
 ## Task Workflow
 
 All tasks follow a strict lifecycle:

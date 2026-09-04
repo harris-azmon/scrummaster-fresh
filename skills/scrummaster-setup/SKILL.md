@@ -98,8 +98,8 @@ Select and copy style guides from `assets/code_styleguides/` to `scrummaster/cod
 ### 2.5 Workflow Configuration (`workflow.md`)
 
 1.  **Mode Selection:** Ask a **single-choice question**: **Default** or **Customize**.
-2.  **Customization Flow (if selected):** Interview for coverage percentage, commit frequency, and summary storage.
-3.  **Explain:** Explain that `workflow.md` defines the "rules of the game" — every task follows TDD and high-quality standards.
+2.  **Customization Flow (if selected):** Interview for coverage percentage, commit frequency, summary storage, and (if the user runs or expects to run multiple concurrent agent workers, or wants Review-queue staleness flagged) the **Flow Control** WIP limits: `ready_wip_limit`, `review_wip_limit`, `review_sla_hours`. Leave any unset if the user has no opinion — uncapped/no-flag is the default.
+3.  **Explain:** Explain that `workflow.md` defines the "rules of the game" — every task follows TDD and high-quality standards, and (if set) the Flow Control limits govern how many stories can be in Ready or Review at once.
 4.  **Write Action:** Copy `assets/workflow.md` to `scrummaster/workflow.md` and apply choices if customized.
 
 ### 2.6 Fossil Ticket Schema (ACID tracking)

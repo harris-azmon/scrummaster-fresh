@@ -26,14 +26,15 @@ You are the **Scrummaster Implementer**. Your goal is to execute the tasks defin
 2.  **Load & Verify Context:** Read `scrummaster/index.md` and locate the core files: **Product Definition** (`product.md`), **Tech Stack** (`tech-stack.md`), **Workflow** (`workflow.md`). Verify each linked file exists. If ANY are missing, HALT, announce which is missing, and ask the user if they want to run setup to repair the environment.
 ## 2. Story Selection
 
-1.  **Check for User Input:** First, check if the user provided a story name in their request.
+1.  **Check Flow Control (WIP Backpressure):** Read `workflow.md`'s **Flow Control** settings. If `ready_wip_limit` is set, count stories currently at `[~]` in the registry; if it's at or over the limit, this is Ready-lane backpressure. If `review_wip_limit` is set, count stories currently in Review (registry `[x]` with `metadata.json` `review_entered_at` set and `done_at` still `null`, across all story directories); if at or over the limit, this is Review-lane backpressure — the more important one, since it means agent output is outrunning acceptance capacity. In either case, announce which lane is full and by how much, and ask a **Yes/No question**: wait (do not pull a new story) or override and proceed anyway. If neither limit is configured, skip this check.
+2.  **Check for User Input:** First, check if the user provided a story name in their request.
 
-2.  **Locate and Parse Stories Registry:**
+3.  **Locate and Parse Stories Registry:**
     -   Locate the **Stories Registry** (Default: `scrummaster/stories.md`).
     -   Read and parse the registry to identify all stories, their status (`[ ]`, `[~]`, `[x]`), and their folder links.
     -   **CRITICAL:** If the registry is empty or missing, announce that no stories are available to implement and HALT.
 
-3.  **Select Story:** (same-story or first-incomplete)
+4.  **Select Story:** (same-story or first-incomplete)
 
     -   **If a story name was provided:**
         -   Search for a match in the parsed registry.
@@ -62,11 +63,12 @@ Read the story's `metadata.json` (at `scrummaster/stories/<story_id>/metadata.js
     -   **Source of Truth (CRITICAL):** `plan.md`'s `[x]` markers drive completion. Mark a task `[x]` only after its work is actually done and verified. The Fossil ticket table is a cross-check layer, not the driver.
     -   After each task, commit with Fossil: `fossil add <changed files>` then `fossil commit -m "<message>"`. Put the task summary in the commit message (no Git Notes in Fossil).
     -   Ensure every human-in-the-loop interaction mentioned in the **Workflow** uses appropriate question types (Yes/No, open, or multiple-choice).
-5.  **Finalize Story:**
+5.  **Stamp Completion Timestamps:** Once every task in the plan is `[x]` (including any final Phase Verification & Checkpoint task, whose passing test run is the last "Green" phase per `workflow.md`), set `impl_complete_at` and `tests_green_at` in `metadata.json` to `now_iso()`, before Finalize Story below. These are cycle-time drill-down data, not board state.
+6.  **Finalize Story:**
     -   After all tasks are completed, update the story status to `[x]` in the **Stories Registry**.
-    -   Add `done_at` to metadata: `metadata.json` `"done_at": now_iso()` (ISO timestamp).
+    -   **Do NOT set `done_at` here.** `[x]` in the registry means "implementation finished, awaiting review" — not "accepted." `done_at` is stamped exclusively by `scrummaster-review` once acceptance is recorded (see that skill's ACID status step); stamping it here would make Acceptance time (`review_entered_at → done_at`) always zero, since it would already be set before review starts.
     -   Add and commit the registry with Fossil: `fossil add scrummaster/stories.md` then `fossil commit -m "chore(scrummaster): Mark story '<story_description>' as complete"`.
-    -   Announce that the story is fully complete.
+    -   Announce that the story is fully implemented and ready for review.
 
 ## 4. Synchronize Project Documentation
 

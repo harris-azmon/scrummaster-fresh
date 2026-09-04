@@ -43,6 +43,17 @@ You are an AI agent. Your primary function is to provide a status overview of th
 
 3.  **Cross-Check with ACID Tickets (optional):** Use the `acid_ticket_rollup` MCP tool to fetch the Fossil ticket completion summary. Compare it against the plan rollup and report any drift (e.g., plan task marked `[x]` but its ACID ticket still `Open`, or vice-versa). This is a cross-check, not the source of truth.
 
+### 2.2.1 Compute Flow State
+
+Classify each registered story by lane, using registry status plus its `metadata.json`:
+
+-   **Ready:** registry status `[~]`.
+-   **Awaiting Review:** registry status `[x]`, `metadata.json` `review_entered_at` is `null` (implementation finished, `scrummaster-review` hasn't been run yet).
+-   **In Review:** registry status `[x]`, `review_entered_at` set, `done_at` still `null`. For each, compute **age** = now − `review_entered_at`.
+-   **Done:** `done_at` set.
+
+Read `workflow.md`'s **Flow Control** section for `ready_wip_limit`, `review_wip_limit`, `review_sla_hours` (any may be unset).
+
 ### 2.3 Present Status Overview
 
 Present the summary in a clear, readable format, including:
@@ -52,6 +63,10 @@ Present the summary in a clear, readable format, including:
 -   **Next Action Needed:** the next pending task.
 -   **Blockers:** any items explicitly marked as blockers in the plan.
 -   **Phases (total), Tasks (total), Progress:** presented as `tasks_completed/tasks_total (percentage%)`.
--   **Build time:** median, min, max of `ready_entered_at → review_entered_at` across completed stories (computed from `metadata.json`).
--   **Acceptance time:** median, min, max of `review_entered_at → done_at` across completed stories (computed from `metadata.json`).
+-   **Flow WIP:** `Ready: <count>/<ready_wip_limit or "∞">`, `Review: <count>/<review_wip_limit or "∞">` (from §2.2.1). If a lane is at or over its configured limit, call this out explicitly — it means `scrummaster-implement` is (or should be) withholding new work.
+-   **Review Queue:** list each story currently **In Review** with its age (now − `review_entered_at`). If `review_sla_hours` is configured, flag any story whose age exceeds it — this can fire even when Review is within its WIP cap, since a bursty reviewer can leave one card stale while nominally under the limit.
+-   **Build time:** median, min, max of `ready_entered_at → review_entered_at` across stories that have entered Review (computed from `metadata.json`). This isolates agent-side latency (spec/plan drafting, implementation, dependency stalls) from review latency.
+-   **Acceptance time:** median, min, max of `review_entered_at → done_at` across **Done** stories (computed from `metadata.json`). This isolates reviewer-side latency — per the two-phase split, this is where the bottleneck is expected to live once agent throughput exceeds review capacity.
 -   **Ticket Drift (optional):** any mismatches between plan `[x]` and Fossil ticket status, if the cross-check was run.
+
+If Build time looks anomalous for a specific story, drill in by reading that story's `metadata.json` directly for `spec_committed_at`, `plan_committed_at`, `impl_complete_at`, and `tests_green_at` — these sub-phase timestamps aren't part of the default overview (they're per-card diagnostic data, not board state), but they reconstruct where inside the build phase the story actually stalled.

@@ -35,6 +35,7 @@ You are an AI agent acting as a **Principal Software Engineer** and **Code Revie
     -   **If one exists:** Ask a **Yes/No question** to proceed with that story.
     -   **If none, or declined:** Ask an **open question** to clarify, suggesting a story name or 'current' for uncommitted changes.
 3.  **Confirm Scope:** Confirm with the user (Yes/No).
+4.  **Stamp Review Entry:** If reviewing a specific story and its `metadata.json` does not already have `review_entered_at` set, set it now: `"review_entered_at": now_iso()`. Do this immediately on scope confirmation, before analysis begins — it marks the start of the Review lane, and everything from here through §3.2 is Acceptance time. (If `review_entered_at` is already set, this is a re-review of the same story; leave the original timestamp untouched.)
 
 ### 2.2 Retrieve Context
 
@@ -111,9 +112,9 @@ Format your output strictly as follows:
      -   If NO changes, skip the commit.
      -   If changes: confirm with the user (Yes/No). If yes:
          -   If reviewing a story, append a `## Phase: Review Fixes` with `- [~] Task: Apply review suggestions` to the story's `plan.md`, then commit code with `fossil add .` and `fossil commit -m "fix(scrummaster): Apply review suggestions for story '<story_name>'"`. Mark the plan task `[x]` after.
-+   **Record review timestamps:** If `metadata.json` does not already have a `review_entered_at` field, set it now: `metadata.json` `"review_entered_at": now_iso()`. If `done_at` is not yet set, also set it: `metadata.json` `"done_at": now_iso()`.
-+
- ### 3.3 Story Cleanup
+4.  **Record Acceptance:** Once every ACID's ticket status is recorded (step 1) and any resulting fixes are committed (step 3), set `metadata.json` `"done_at": now_iso()` — this is the sole place `done_at` gets stamped, and it marks acceptance, not "code exists." Acceptance time (`review_entered_at → done_at`) is only meaningful because `done_at` is set here, after the review loop actually concludes, rather than back when implementation finished.
+
+### 3.3 Story Cleanup
 
 1.  **Context Check:** If not reviewing a specific story, SKIP this section.
 2.  **Ask for User Choice:** Ask a **multiple-choice question**: **Archive** (move to `scrummaster/archive/`), **Delete** (permanent), or **Skip**.
