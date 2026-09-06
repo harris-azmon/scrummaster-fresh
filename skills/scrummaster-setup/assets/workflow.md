@@ -103,8 +103,8 @@ All tasks follow a strict lifecycle:
         non-trivial pure logic (e.g. a numerical or algorithmic kernel)
         where a fast, mock-free, function-in/value-out test materially
         improves diagnosis. Do not add a unit test as a default or to
-        pad coverage — see `code_styleguides/general.md` → Abstraction
-        for why testability-only seams and mocks are a cost, not a
+        pad coverage — see the `code_styleguides/general` wiki page →
+        Abstraction for why testability-only seams and mocks are a cost, not a
         virtue, and are especially risky to leave for an agent to
         maintain across sessions.
     -   **CRITICAL:** Run the tests and confirm that they fail as expected. This
@@ -372,7 +372,7 @@ language, framework, and build tools.**
     a signal the behavior belongs in the functional suite instead.
 -   Never introduce an interface, DI seam, or factory solely to make
     something unit-testable in isolation — see
-    `code_styleguides/general.md` → Abstraction.
+    the `code_styleguides/general` wiki page → Abstraction.
 
 ### Mobile Testing
 
@@ -487,7 +487,7 @@ A task is complete when:
 3.  Implement minimal fix
 4.  Test thoroughly including mobile
 5.  Deploy immediately
-6.  Document in plan.md
+6.  Document on the story's `plan` wiki page
 
 ### Data Loss
 
