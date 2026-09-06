@@ -101,8 +101,8 @@ Define branding, voice, tone, and UX principles.
     under a new `## Engineering Priorities` heading, as an ordered list —
     do not append the remaining, un-asked-about priorities in any order.
     Their absence from the list means no explicit preference was stated
-    for them, and default judgment (see `code_styleguides/general.md` →
-    Simplicity) applies. This ordering is a deliberate tech-stack decision
+    for them, and default judgment (see the `code_styleguides/general`
+    wiki page → Simplicity) applies. This ordering is a deliberate tech-stack decision
     like any other in this file: it governs concrete implementation
     tradeoffs (e.g. whether to prefer value types/structs over heap
     allocation, when pooling or caching is justified, whether to accept an
