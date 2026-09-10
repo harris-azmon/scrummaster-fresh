@@ -51,14 +51,47 @@ done
 # Namespaced commands (/scrummaster:...)
 ln -sfn "$(pwd)/commands/scrummaster" ~/.config/opencode/commands/scrummaster
 
+# Turbo Mode subagents (optional — see "Turbo Mode" below)
+mkdir -p ~/.config/opencode/agents
+for a in scrummaster-product-manager scrummaster-software-architect; do
+  ln -sfn "$(pwd)/agents/$a.md" ~/.config/opencode/agents/$a.md
+done
+
 # Fossil MCP server: build it and register it in opencode config
 (cd mcp && npm install && npm run build)
 ```
+
+For a project-local (non-global) install, symlink or copy the same files
+into `.opencode/skills/`, `.opencode/commands/scrummaster/`, and
+`.opencode/agents/` under the target project instead.
+
+## Turbo Mode
+
+Opt-in, off by default. When enabled (a `Turbo Mode: Enabled` marker on the
+`workflow` wiki page, set once during `/scrummaster:scrummaster-setup`),
+every skill spawns a subagent instead of stopping to ask you a question,
+and treats its answer exactly as it would yours:
+
+- **`scrummaster-product-manager`** (`agents/scrummaster-product-manager.md`) —
+  scope/priority/lifecycle decisions: epic assignment, story framing, spec/plan
+  approval at the product level, archive/skip, revert target selection.
+- **`scrummaster-software-architect`** (`agents/scrummaster-software-architect.md`) —
+  technical decisions: spec/plan soundness, phase/code review verification
+  (it actually runs your test suite, never guesses), tech-stack deviations,
+  implementation ambiguity.
+
+Both must be installed as real OpenCode subagents (see the symlink step
+above) before enabling Turbo Mode — `/scrummaster:scrummaster-setup` will
+still ask, but the answer only does anything once the agents exist under
+`.opencode/agents/` or `~/.config/opencode/agents/`. Neither agent has
+`edit` access; the architect may run test/lint/typecheck/build commands to
+verify a claim, nothing else.
 
 ## Repository Structure
 
 - `/skills`: the protocol logic (`SKILL.md`) for each command, plus assets.
 - `/commands/scrummaster`: namespaced opencode command files (`/scrummaster:...`).
+- `/agents`: Turbo Mode subagent definitions (OpenCode `mode: subagent` format) — see "Turbo Mode" above.
 - `/mcp`: the TypeScript Fossil MCP server — generic VCS operations (status/diff/commit/revert/etc.), the wiki tools every skill uses as its primary store, and Fossil ticket/ACID operations (adapted from the acid-cli source). Used by every skill, not just `scrummaster-review`.
 - `/plugin.json`: minimal plugin manifest.
 

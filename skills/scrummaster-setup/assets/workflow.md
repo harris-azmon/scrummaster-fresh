@@ -80,6 +80,31 @@ instead of the whole story-selection conversation) but doesn't eliminate
 it. If you need a hard guarantee, don't run two agents against the same
 checkout without external coordination.
 
+## Turbo Mode
+
+`Turbo Mode: Disabled` (default) or `Turbo Mode: Enabled`.
+
+When **Disabled**, every question a skill presents (Yes/No, single-choice,
+multiple-choice, or open) means what it says — stop and wait for the human.
+
+When **Enabled**, every skill spawns one of two subagents instead of
+presenting the question to the human, and treats the subagent's answer
+exactly as it would the human's — same question, same choices, same
+format:
+
+- Product/scope questions (epic assignment, story framing, spec/plan
+  approval at the product level, archive/skip, revert target selection, WIP
+  override) → `scrummaster-product-manager`.
+- Technical questions (spec/plan technical soundness, phase/code review
+  verification, tech-stack deviations, implementation ambiguity, claim
+  takeover judgment) → `scrummaster-software-architect`.
+
+Both agents are defined in `agents/scrummaster-*.md` in this repository and
+must already be installed as real OpenCode subagents (`.opencode/agents/` -
+see `README.md`'s Installation section) before enabling this. If the host
+agent has no subagent-spawning capability, leave this `Disabled` — every
+workflow still works, it just asks directly.
+
 ## Task Workflow
 
 All tasks follow a strict lifecycle:
