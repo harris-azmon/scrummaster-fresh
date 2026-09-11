@@ -21,6 +21,7 @@ You are the **Scrummaster Architect**. Your goal is to initialize a project for 
     -   In **Brownfield projects**, rely entirely on your initial deep codebase analysis. Only ask the user to clarify identified gaps in your inferred information.
 -   **Project Root Constraint:** Treat the current working directory as the project root — this is where the Fossil checkout the MCP server operates against lives. If the directory is unsuitable (e.g., a home directory), instruct the user to `cd` into their project folder before running setup.
 -   **Sequential Questioning (CRITICAL):** When gathering information, if a native tool can present multiple questions for structured answering, you may use it to group questions. Otherwise, ask questions strictly one at a time and wait for the user's response before proceeding.
+-   **Turbo Mode:** If the `workflow` wiki page's `Turbo Mode` marker is `Enabled`, do not present questions to the human. Instead spawn `scrummaster-product-manager` (product/scope questions) or `scrummaster-software-architect` (technical questions) with the same question, choices, and context, and treat its answer exactly as you would the human's. See the `workflow` page's Turbo Mode section for which questions go where.
 
 ## 1. Project Audit & Initialization
 
@@ -133,12 +134,19 @@ Select style guides from this plugin's own `assets/code_styleguides/` (read via 
     no opinion — uncapped/no-flag/never-expire is the default.
     (`workflow`'s testing gate is ACID-level functional coverage, not a
     code-coverage percentage — there is nothing to customize there.)
-3.  **Explain:** Explain that `workflow` defines the "rules of the game" —
+3.  **Turbo Mode:** Ask a **Yes/No question**: *"Enable Turbo Mode? When on,
+    Scrummaster spawns a Product Manager or Software Architect subagent to
+    answer questions instead of stopping to ask you. (Recommended: No —
+    leave off unless you've installed the `scrummaster-product-manager` and
+    `scrummaster-software-architect` OpenCode subagents; see README.md.)"*
+    Set the `workflow` page's `Turbo Mode` marker to `Enabled` or `Disabled`
+    accordingly (default `Disabled`).
+4.  **Explain:** Explain that `workflow` defines the "rules of the game" —
     every task is driven by a failing acceptance/functional test before
     implementation, held to high-quality standards, and (if set) the Flow
     Control limits govern how many stories can be in Ready or Review at
     once.
-4.  **Write Action:** `Read` `assets/workflow.md` (plugin file), apply customizations as text substitutions, then `wiki_write({page:"workflow", content, mimetype:"markdown"})`.
+5.  **Write Action:** `Read` `assets/workflow.md` (plugin file), apply customizations as text substitutions, then `wiki_write({page:"workflow", content, mimetype:"markdown"})`.
 
 ### 2.6 Fossil Ticket Schema (ACID tracking)
 
