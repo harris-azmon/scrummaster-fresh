@@ -653,6 +653,81 @@ export async function applyTicketSchema(
 	return { applied: true, columns, has_acid_column: columns.includes("acid") };
 }
 
+// Resolves the packaged ticket_ui_config.sql the same way as
+// defaultTicketSchemaPath() above.
+function defaultTicketUiConfigPath(): string {
+	const moduleDir = dirname(fileURLToPath(import.meta.url));
+	return join(moduleDir, "..", "..", "skills", "scrummaster-setup", "assets", "ticket_ui_config.sql");
+}
+
+// Configures Fossil's native ticket `status` field (and the stock "All
+// Tickets" report's coloring) to the ACID lifecycle instead of generic
+// bug-tracker jargon. Complements applyTicketSchema — apply this after it.
+export async function applyTicketUiConfig(
+	cwd: string,
+	configSql?: string,
+	runner: Runner = defaultRunner,
+): Promise<{ applied: boolean; status_choices: string[] }> {
+	const sql = configSql ?? (await readTextFile(defaultTicketUiConfigPath()));
+	const applyResult = await runner.run(["sql"], cwd, sql);
+	if (applyResult.exitCode !== 0) {
+		throw new FossilError(`fossil sql (apply ticket UI config) failed: ${applyResult.stderr.trim() || "unknown error"}`);
+	}
+	const verifyResult = await runner.run(["sql", "--readonly"], cwd, "SELECT value FROM config WHERE name='ticket-common'");
+	if (verifyResult.exitCode !== 0) {
+		throw new FossilError(`fossil sql (verify ticket UI config) failed: ${verifyResult.stderr.trim() || "unknown error"}`);
+	}
+	const match = verifyResult.stdout.match(/set status_choices \{([^}]*)\}/);
+	const statusChoices = match ? match[1]!.split(/\s+/).filter(Boolean) : [];
+	return { applied: true, status_choices: statusChoices };
+}
+
+// Sets Fossil's project-level metadata (project-name, project-description)
+// and index-page setting. None of these are exposed via `fossil settings` —
+// they live directly in the repository's `config` table, so this goes
+// through `fossil sql` like the ticket schema/UI config above rather than
+// setSetting()'s `fossil settings NAME VALUE`, which fossil rejects for
+// these three names ("no such setting").
+export async function configureProjectSettings(
+	cwd: string,
+	options: { projectName?: string; projectDescription?: string; indexPage?: string },
+	runner: Runner = defaultRunner,
+): Promise<{ applied: boolean; project_name: string | null; project_description: string | null; index_page: string | null }> {
+	const entries: Array<[string, string]> = [];
+	if (options.projectName !== undefined) entries.push(["project-name", options.projectName]);
+	if (options.projectDescription !== undefined) entries.push(["project-description", options.projectDescription]);
+	if (options.indexPage !== undefined) entries.push(["index-page", options.indexPage]);
+	if (entries.length > 0) {
+		const values = entries.map(([name, value]) => `('${escapeSqlString(name)}', '${escapeSqlString(value)}', now())`).join(", ");
+		const sql = `REPLACE INTO config(name, value, mtime) VALUES ${values};`;
+		const applyResult = await runner.run(["sql"], cwd, sql);
+		if (applyResult.exitCode !== 0) {
+			throw new FossilError(`fossil sql (configure project settings) failed: ${applyResult.stderr.trim() || "unknown error"}`);
+		}
+	}
+	const verifyScript = [
+		".mode json",
+		"SELECT name, value FROM config WHERE name IN ('project-name','project-description','index-page');",
+	].join("\n");
+	const verifyResult = await runner.run(["sql", "--readonly"], cwd, verifyScript);
+	if (verifyResult.exitCode !== 0) {
+		throw new FossilError(`fossil sql (verify project settings) failed: ${verifyResult.stderr.trim() || "unknown error"}`);
+	}
+	let rows: Array<{ name: string; value: string }> = [];
+	try {
+		rows = JSON.parse(verifyResult.stdout.trim() || "[]");
+	} catch {
+		rows = [];
+	}
+	const byName = new Map(rows.map((r) => [r.name, r.value]));
+	return {
+		applied: true,
+		project_name: byName.get("project-name") ?? null,
+		project_description: byName.get("project-description") ?? null,
+		index_page: byName.get("index-page") ?? null,
+	};
+}
+
 // --- Fossil wiki ---
 //
 // Verified: `wiki create <page>` fails ("already exists") if the page

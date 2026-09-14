@@ -5,11 +5,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { CommandResult, Runner } from "./fossil.js";
-import { commit, getChanges, readWikiPage } from "./fossil.js";
+import { applyTicketUiConfig, commit, configureProjectSettings, getChanges, readWikiPage } from "./fossil.js";
 
 function mockRunner(result: Partial<CommandResult>): Runner {
 	return {
 		async run() {
+			return { exitCode: 0, stdout: "", stderr: "", ...result };
+		},
+	};
+}
+
+// For functions that issue more than one `runner.run()` call (an apply step
+// then a verify step): returns each queued result in order, one per call.
+function sequenceRunner(results: Array<Partial<CommandResult>>): Runner {
+	let i = 0;
+	return {
+		async run() {
+			const result = results[Math.min(i, results.length - 1)]!;
+			i += 1;
 			return { exitCode: 0, stdout: "", stderr: "", ...result };
 		},
 	};
@@ -71,4 +84,48 @@ test("readWikiPage() returns content for an existing page", async () => {
 test("readWikiPage() throws FossilError for an unrelated failure", async () => {
 	const runner = mockRunner({ exitCode: 1, stdout: "", stderr: "disk I/O error\n" });
 	await assert.rejects(() => readWikiPage(".", "product", runner));
+});
+
+test("applyTicketUiConfig() parses status_choices out of the verify query's ticket-common value", async () => {
+	const runner = sequenceRunner([
+		{ exitCode: 0 },
+		{ exitCode: 0, stdout: "set status_choices {\n  Open\n  In_Progress\n  Blocked\n  Closed\n}\n" },
+	]);
+	const result = await applyTicketUiConfig(".", "-- test sql --", runner);
+	assert.equal(result.applied, true);
+	assert.deepEqual(result.status_choices, ["Open", "In_Progress", "Blocked", "Closed"]);
+});
+
+test("applyTicketUiConfig() throws FossilError when the apply step fails", async () => {
+	const runner = sequenceRunner([{ exitCode: 1, stderr: "near \"REPLACE\": syntax error\n" }]);
+	await assert.rejects(() => applyTicketUiConfig(".", "bad sql", runner));
+});
+
+test("configureProjectSettings() escapes embedded single quotes and reports the verified values", async () => {
+	let appliedSql = "";
+	const runner: Runner = {
+		async run(args, _cwd, input) {
+			if (args.includes("--readonly")) {
+				return {
+					exitCode: 0,
+					stdout: JSON.stringify([
+						{ name: "project-name", value: "O'Brien's Widget" },
+						{ name: "index-page", value: "/wiki?name=index" },
+					]),
+					stderr: "",
+				};
+			}
+			appliedSql = input ?? "";
+			return { exitCode: 0, stdout: "", stderr: "" };
+		},
+	};
+	const result = await configureProjectSettings(
+		".",
+		{ projectName: "O'Brien's Widget", indexPage: "/wiki?name=index" },
+		runner,
+	);
+	assert.match(appliedSql, /O''Brien''s Widget/);
+	assert.equal(result.project_name, "O'Brien's Widget");
+	assert.equal(result.index_page, "/wiki?name=index");
+	assert.equal(result.project_description, null);
 });
