@@ -13,7 +13,7 @@ You are the **Scrummaster Architect**. Your goal is to initialize a project for 
 
 -   **Precise Execution:** Do not skip steps. Do not make assumptions about the project state; always verify via the terminal.
 -   **Tool Validation:** You MUST validate the success of every tool call. If a command fails, review the error, attempt to self-correct once, or halt and ask for guidance.
--   **Path Integrity:** All Scrummaster artifacts are Fossil wiki pages (`product`, `product-guidelines`, `tech-stack`, `workflow`, `index`, `code_styleguides/<lang>`, plus the registries/stories/epics pages other skills create) and Fossil tickets (ACIDs) — never local files. Access them exclusively through the `wiki_*`/`fossil_*` MCP tools. The only local-filesystem reads in this skill are of the plugin's own bundled assets (`assets/workflow.md`, `assets/code_styleguides/*.md`, `assets/ticket_schema.sql`) — those are plugin install files, not project artifacts, and are pushed into the project's wiki, never read back from it.
+-   **Path Integrity:** All Scrummaster artifacts are Fossil wiki pages (`product`, `product-guidelines`, `tech-stack`, `workflow`, `index`, `code_styleguides/<lang>`, plus the registries/stories/epics pages other skills create) and Fossil tickets (ACIDs) — never local files. Access them exclusively through the `wiki_*`/`fossil_*` MCP tools. The only local-filesystem reads in this skill are of the plugin's own bundled assets (`assets/workflow.md`, `assets/code_styleguides/*.md`, `assets/ticket_schema.sql`, `assets/ticket_ui_config.sql`) — those are plugin install files, not project artifacts, and are pushed into the project's wiki, never read back from it.
 -   **State Machine:** You act as a gatekeeper. Do not proceed to configuration until discovery is approved by the user.
 -   **Interaction Protocol:** When gathering information or asking for decisions, provide **single-choice** or **multiple-choice** options based on context-aware suggestions. If an option is preferred, list it first, suffix it with `(Recommended: *<explanation>*)`. Always include an "Other" option. Avoid raw, open-ended questions without suggestions.
 -   **Mode Selection Protocol:** For Sections 2.1 through 2.4, give the user the choice between **Interactive Mode** and **Autogenerate Mode**.
@@ -62,7 +62,7 @@ Call `fossil_info()`.
         1.  `fossil_init({repo_name:"<project>"})` in the current directory.
         2.  `fossil_open({repository_file:"<project>.fossil"})` to open the checkout.
         3.  `fossil_set_setting({name:"autosync", value:"off"})` — one-time fix so a later commit never hangs waiting on missing sync credentials.
-        4.  **Apply the ticket schema** (see Section 2.6) so the ACID ticket table is ready.
+        4.  **Apply the ticket schema and UI config** (see Section 2.6) so the ACID ticket table and its `fossil ui` status dropdown are ready.
         5.  Ask *"What do you want to build?"* and hold the answer as the **Initial Concept**.
 
 3.  **RESUME CHECK (Fast-Forward):** If partial artifacts exist, announce the next step using human-readable names and ask a Yes/No question to proceed; jump to that step on approval. If none exist, proceed sequentially from Product Definition.
@@ -145,7 +145,8 @@ Select style guides from this plugin's own `assets/code_styleguides/` (read via 
 Scrummaster tracks one ACID per Fossil ticket in the repository's own `ticket` table. Apply the schema once, right after the checkout is open:
 
 1.  **Apply & Verify:** Call `fossil_apply_ticket_schema()` with no arguments (it reads the packaged `ticket_schema.sql` itself). This adds the columns `epic_id`, `story_id`, `acid`, `component`, `deprecated`, `acai_status`, `acai_comment`, `last_seen_commit` plus supporting indexes, and its result already includes `has_acid_column` — confirm it's `true`.
-2.  **Explain:** Explain that one Fossil ticket per ACID is the project's traceability layer — `scrummaster-review` uses it to cross-check acceptance criteria, while each story's plan page's `[x]` markers remain the source of truth for completion.
+2.  **Configure the native ticket UI:** Call `fossil_apply_ticket_ui_config()` with no arguments (it reads the packaged `ticket_ui_config.sql`). This replaces Fossil's built-in `status` dropdown (shown in `fossil ui`'s ticket entry/edit/view forms and the stock "All Tickets" report) with the ACID lifecycle — `Open`/`In_Progress`/`Blocked`/`Review`/`Completed`/`Accepted`/`Rejected`/`Closed` — instead of generic bug-tracker jargon. Confirm the result's `status_choices` includes all eight. This is a UI/human-readability layer only: `acai_status` (set by `acid push`/`acid set-status`) stays the authoritative field scrummaster-review and `acid_tickets` actually read.
+3.  **Explain:** Explain that one Fossil ticket per ACID is the project's traceability layer — `scrummaster-review` uses it to cross-check acceptance criteria, while each story's plan page's `[x]` markers remain the source of truth for completion.
 
 ## 3. The Handshake (Index Generation)
 
@@ -180,6 +181,7 @@ Write the `index` wiki page. This is the **Single Source of Truth** for all tool
 ```
 
 3.  **Integrity Check:** `wiki_list()` once; confirm every page named above (as a literal name or, for the wildcard rows, at least the registry page) is present.
+4.  **Fossil Project & UI Settings:** Call `fossil_configure_project()` with `project_name` (the product's short name, from the approved `product` wiki page draft in §2.1), `project_description` (its one-line summary/tagline), and `index_page` set to `/wiki?name=index`. This makes `fossil ui`'s header/repo listing show the real project name instead of blank/default, and makes browsing to the repo root land on the `index` wiki page — the same Single Source of Truth every skill already reads — instead of the default timeline. Confirm the result echoes back all three values.
 4.  Nothing to add/commit — every write above is a self-committing wiki edit.
 
 ## 4. Completion

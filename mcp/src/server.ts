@@ -23,6 +23,8 @@ import {
 	getTimeline,
 	listBranches,
 	applyTicketSchema,
+	applyTicketUiConfig,
+	configureProjectSettings,
 	setSetting,
 	writeWikiPage,
 	readWikiPage,
@@ -434,6 +436,40 @@ server.tool(
 	async ({ schema_sql }) => {
 		try {
 			const result = await applyTicketSchema(cwd, schema_sql);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_apply_ticket_ui_config",
+	{ config_sql: z.string().optional().describe("Override SQL to apply (default: the packaged ticket_ui_config.sql)") },
+	async ({ config_sql }) => {
+		try {
+			const result = await applyTicketUiConfig(cwd, config_sql);
+			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+		} catch (error: any) {
+			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+		}
+	},
+);
+
+server.tool(
+	"fossil_configure_project",
+	{
+		project_name: z.string().optional().describe("Sets Fossil's project-name config value"),
+		project_description: z.string().optional().describe("Sets Fossil's project-description config value"),
+		index_page: z.string().optional().describe("Sets Fossil's index-page config value, e.g. '/wiki?name=index'"),
+	},
+	async ({ project_name, project_description, index_page }) => {
+		try {
+			const result = await configureProjectSettings(cwd, {
+				projectName: project_name,
+				projectDescription: project_description,
+				indexPage: index_page,
+			});
 			return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 		} catch (error: any) {
 			return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
