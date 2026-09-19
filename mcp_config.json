@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "scrummaster-fossil": {
+      "command": "node",
+      "args": ["./mcp/dist/server.js"],
+      "env": {
+        "FOSSIL_CWD": "."
+      }
+    }
+  }
+}
