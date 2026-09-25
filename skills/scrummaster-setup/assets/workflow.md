@@ -324,6 +324,10 @@ Before marking any task complete, verify:
 -   [ ] All tests pass
 -   [ ] Every ACID touched by this task has a passing functional/acceptance
     test proving its acceptance criteria
+-   [ ] Any real external boundary the task touches (database, internal
+    service, filesystem, third-party API) is covered by an integration
+    test run against a real dependency or realistic containerized
+    substitute — see Testing Requirements → Integration Testing
 -   [ ] Code follows project's code style guidelines (as defined in
     `code_styleguides/`)
 -   [ ] All public functions/methods are documented (e.g., docstrings, JSDoc,
@@ -398,6 +402,61 @@ language, framework, and build tools.**
 -   Never introduce an interface, DI seam, or factory solely to make
     something unit-testable in isolation — see
     the `code_styleguides/general` wiki page → Abstraction.
+
+### Integration Testing
+
+Integration tests are the subset of the functional/acceptance suite that
+exercises a real boundary between this codebase and something outside its
+own process — a database, another internal service, a filesystem, a queue,
+a third-party API. They are not a separate gate from functional/acceptance
+testing (see above — that suite already *covers* integration testing); this
+section is about how to write and run the ones that cross a real boundary
+so they stay fast, deterministic, and honest about what they prove.
+
+-   **Real dependency or realistic containerized substitute, never a mock
+    of the boundary itself.** A test asserting "we can persist and read
+    back a record" that mocks the database client hasn't tested
+    persistence — it's tested that a mock returns what it was told to
+    return. Use the real service via a container (e.g. Testcontainers,
+    `docker compose` for local/CI parity) or a real local instance. Mock
+    only a boundary that's genuinely impractical to run for real — a paid
+    third-party API, a non-deterministic clock, an external system with no
+    sandbox — and say so explicitly in the test (name/comment) so a later
+    reader knows it's an intentional exception, not an oversight.
+-   **Isolate test data per test.** Each integration test must set up its
+    own fixtures and tear them down (or run inside a transaction that's
+    rolled back, or against a uniquely-namespaced schema/dataset) so tests
+    can run in any order, in parallel, and repeatedly without leaking state
+    into each other or requiring manual cleanup between runs.
+-   **Pin versions to what production runs.** A containerized database or
+    service should match the major version deployed in production — a
+    passing integration test against a newer/older version proves nothing
+    about production behavior.
+-   **Treat external-service boundaries explicitly.** For a third-party
+    API that can't be run for real in CI, use a recorded-interaction
+    fixture (e.g. VCR-style cassette) or a contract/sandbox test against
+    the provider's own test environment — not a hand-written mock of the
+    response shape, which drifts silently from the real API over time.
+-   **No flaky retries as a fix.** If an integration test is intermittently
+    red, that's a real bug (a race, an unawaited async operation, shared
+    mutable state between tests, a timing assumption) — diagnose and fix
+    the root cause. Do not paper over it with automatic retries, increased
+    timeouts, or `--flaky` skip annotations; those hide the exact class of
+    bug integration tests exist to catch.
+-   **Run in CI on every change, non-interactively.** Integration tests
+    must run headless and unattended (see Guiding Principle 6 —
+    `CI=true`) as part of the same automated run as the rest of the
+    functional/acceptance suite in the Phase Completion Verification
+    protocol's Step 3, not as a manual, optional, or separately-scheduled
+    step. If a project's integration suite is slow enough to need
+    separating from the fast unit/functional run, document the split (and
+    how to run each) in the **Development Commands** section below rather
+    than leaving it implicit.
+-   **Failure output must name the boundary.** When an integration test
+    fails, its output/assertion message should make clear which external
+    dependency was involved and what was expected versus received (not
+    just "assertion failed") — this is what makes the difference between a
+    5-minute diagnosis and a rerun-and-guess.
 
 ### Mobile Testing
 
@@ -492,15 +551,19 @@ A task is complete when:
 1.  All code implemented to specification
 2.  Every ACID for this task has a passing functional/acceptance test
     proving its acceptance criteria
-3.  Any supplementary unit tests (isolated pure logic only) are written and
+3.  Any real external boundary touched (database, internal service,
+    filesystem, third-party API) has a passing integration test against a
+    real dependency or realistic containerized substitute — see Testing
+    Requirements → Integration Testing
+4.  Any supplementary unit tests (isolated pure logic only) are written and
     passing; code coverage is reviewed for information, not required to
     meet a percentage
-4.  Documentation complete (if applicable)
-5.  Code passes all configured linting and static analysis checks
-6.  Works beautifully on mobile (if applicable)
-7.  Implementation notes added to the `plan` wiki page
-8.  Changes committed with proper message
-9.  Task summary included in the commit message
+5.  Documentation complete (if applicable)
+6.  Code passes all configured linting and static analysis checks
+7.  Works beautifully on mobile (if applicable)
+8.  Implementation notes added to the `plan` wiki page
+9.  Changes committed with proper message
+10. Task summary included in the commit message
 
 ## Emergency Procedures
 
